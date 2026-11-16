@@ -1,0 +1,51 @@
+[plugin]
+config_version = "1.2.0"
+enabled = true
+character_name = "麦麦"
+
+[access]
+# 留空时可继承宿主已配置的 QQ 管理员。
+allowed_users = []
+# 只继承宿主 [plugin].permission 中明确指定的 QQ 管理员，名单非空时由上方名单覆盖。
+inherit_host_operators = true
+allowed_groups = []
+public_status = false
+webui_controls = true
+
+[behaviour]
+automatic = true
+manual_hold_seconds = 900
+walking_speed = 1.15
+
+[life]
+# 兼容旧配置的保留字段。新版不轮询生活插件，使用公开接口主动接入。
+enabled = false
+plugin_id = "cateye.life_belonging_to_maimai"
+poll_seconds = 30
+# 当前生活插件没有公开情绪 API；空值会明确显示未接入。
+mood_api = ""
+
+[chat]
+# 只在用户点击发送时使用宿主内部聊天；聊天内容也会同步出现在宿主原生聊天室。
+enabled = true
+
+[tv]
+plugin_playback_enabled = true
+max_video_mib = 64
+save_enabled = true
+# 仅用户点击才把单帧发到已配置的 vlm 视觉模型，可能产生调用费用。
+review_enabled = true
+cooldown_seconds = 30
+
+[tools]
+enabled = true
+force_enabled = false
+# whitelist 白名单 / blacklist 黑名单。空白名单表示无会话获准调用。
+private_mode = "whitelist"
+private_users = []
+group_mode = "whitelist"
+groups = []
+
+[performance]
+render_grace_seconds = 600
+desktop_fps = 60

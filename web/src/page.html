@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>麦麦的家</title>
+<style>/*__ROOM_CSS__*/</style>
+</head>
+<body>
+<button type="button" id="room-entry-status" hidden></button>
+<template id="room-template">
+<canvas id="scene" aria-label="麦麦的三维房间，左键拖动旋转，中键拖动平移，双击左键指路，双击中键选中家具"></canvas>
+<main id="hud">
+  <header class="top">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"><img id="roomLogo" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit"></span><div><h1>麦麦的家</h1><p>MAISAKA / A LITTLE EVERYDAY</p></div></div>
+    <div class="top-actions">
+      <span id="connection" class="status" role="status"><i></i><span>连接中</span></span>
+      <button id="lamp" class="pill" aria-pressed="true">灯光</button>
+      <button id="detailsToggle" class="pill" aria-expanded="false" aria-controls="details">生活面板</button>
+      <button id="helpToggle" class="icon-button" aria-label="操作说明" title="操作说明">?</button>
+    </div>
+  </header>
+
+  <aside id="details" class="panel details">
+    <div class="section-heading"><span>此刻</span><time id="clock">—</time><button id="closeDetails" class="close" aria-label="收起生活面板">×</button></div>
+    <h2 id="activity">正在等房间状态</h2>
+    <div class="character-line"><span id="location">客厅</span><span id="actionSource" class="muted">—</span></div>
+    <dl class="life-grid">
+      <div><dt>生活情绪</dt><dd id="lifeMood">等待来源</dd></div>
+      <div><dt>房间表情</dt><dd id="expression">自然</dd></div>
+      <div><dt>日程来源</dt><dd id="scheduleSource">等待来源</dd></div>
+      <div><dt>当前安排</dt><dd id="scheduleNow">—</dd></div>
+    </dl>
+    <div id="scheduleList" class="schedule-list"></div>
+    <p id="lifeHint" class="source-hint">房间状态由插件统一管理</p>
+    <div class="section-heading small"><span>房间动作</span><span class="muted">与 QQ 共用</span></div>
+    <div class="actions">
+      <button data-command="stand">站起来</button><button data-command="sit" data-target="sofa">坐沙发</button>
+      <button data-command="sleep">去睡觉</button><button data-command="wake">醒来</button>
+      <button data-command="walk" data-target="balcony">去阳台</button><button data-command="auto">跟随日程</button>
+    </div>
+    <div class="section-heading small"><span>表情</span><span class="muted">临时房间表情</span></div>
+    <div class="expression-actions"><button data-command="mood" data-target="开心">开心</button><button data-command="mood" data-target="困">困了</button><button data-command="mood" data-target="恢复">自然</button></div>
+    <div class="section-heading small"><span>角色精度</span><span id="modelQualityState" class="muted">标准模型</span></div>
+    <div class="expression-actions"><button id="modelQuality">切换精细模型</button><button id="charMode">切换立绘</button></div>
+    <div class="section-heading small"><span>一起待一会儿</span><span class="muted">点一下互动</span></div>
+    <div class="actions interactions"><button data-command="pet">摸摸头</button><button data-command="poke">轻轻戳</button><button data-command="feed">给点吃的</button><button data-command="water">倒杯水</button><button data-command="play">陪她玩</button><button data-command="dance">跳个舞</button><button data-command="stretch">伸懒腰</button><button data-command="bow">行个礼</button></div>
+    <div class="expression-actions utility-actions"><button id="tvToggle">打开电视</button><button id="chatToggle">聊一会儿</button><button id="companionToggle">陪伴卡</button></div>
+    <p class="qq-hint">QQ：<code>/room 走 阳台</code> · <code>/room 坐</code></p>
+    <div id="events" class="events" aria-live="polite"></div>
+  </aside>
+
+  <section id="objectCard" class="panel object-card" hidden>
+    <button id="closeObject" class="close" aria-label="关闭家具详情">×</button>
+    <span class="eyebrow">房间里的小物件</span><h2 id="objectTitle"></h2><p id="objectDescription"></p>
+    <div class="object-actions"><button id="objectGo" class="primary">走过去</button><button id="objectUse">在这里休息</button><button id="objectTv" hidden>打开电视</button></div>
+  </section>
+
+  <section id="tvPanel" class="panel media-panel" hidden>
+    <button id="closeTv" class="close" aria-label="收起电视面板">×</button>
+    <span class="eyebrow">一起看看屏幕</span><h2>房间里的电视</h2>
+    <p id="mediaStatus">选一张照片或一段视频，放到电视里</p>
+    <div class="media-actions"><button id="pickMedia" class="primary">选本地照片 / 视频</button><button id="shareScreen">共享屏幕</button></div>
+    <input id="mediaFile" type="file" accept="image/png,image/jpeg,image/webp,video/mp4,video/webm,video/ogg" hidden>
+    <p id="screenShareInfo" class="source-hint"></p>
+    <video id="mediaVideo" controls muted playsinline hidden></video><img id="mediaImage" alt="当前投到电视的本地照片" hidden>
+    <div class="media-actions"><button id="mediaPause" hidden>暂停</button><button id="mediaStop" hidden>关掉投屏</button></div>
+    <label class="size-control">观看窗口<select id="mediaSize" aria-label="电视观看窗口大小"><option value="small">小窗</option><option value="half">50%</option><option value="large">80%</option><option value="full">铺满页面</option></select></label>
+    <button id="captureTvFrame" class="frame-button" disabled>截取当前电视帧</button>
+    <div id="tvFrameBox" class="tv-frame-box" hidden><img id="tvFrameImage" alt="刚截取的电视单帧预览"><p id="tvFrameCaption"></p><p id="tvReviewInfo" class="source-hint">单帧点评会把上面这一帧发给宿主已配置的 vlm 视觉模型，可能产生调用费用。只在你点“发送此帧点评”后发送。</p><div class="media-actions"><button id="saveTvFrame" disabled>保存到房间</button><button id="reviewTvFrame" disabled>发送此帧点评</button></div></div>
+    <p id="tvFrameStatus" class="source-hint" role="status"></p>
+    <p class="source-hint">选择保存或点评之前，本地媒体只在当前页面播放。保存位置是房间插件的 tv_frames 目录。</p>
+  </section>
+
+  <section id="chatPanel" class="panel chat-panel" hidden>
+    <button id="closeChat" class="close" aria-label="收起房间聊天">×</button><span class="eyebrow">房间里的对话</span><h2>和麦麦聊一会儿</h2>
+    <p id="chatSource" class="source-hint">麦麦的小屋专属宿主聊天流。聊天记录保存在宿主，可在此继续查看回复。</p><div id="chatMessages" class="chat-messages" aria-live="polite"></div>
+    <div class="chat-compose"><input id="chatInput" maxlength="1000" placeholder="想和麦麦说什么" aria-label="房间聊天内容"><button id="chatSend">发送</button></div>
+  </section>
+
+  <section id="companionPanel" class="panel companion-panel" hidden>
+    <button id="closeCompanion" class="close" aria-label="收起陪伴卡">×</button><span class="eyebrow">A MOMENT AT HOME</span><h2 id="companionTitle">麦麦在家</h2>
+    <img id="companionImage" alt="房间中麦麦的当前三维画面"><p id="companionCaption"></p><label class="size-control">卡片大小<select id="companionSize" aria-label="陪伴卡大小"><option value="small">小</option><option value="medium" selected>中</option><option value="large">大</option></select></label><button id="refreshCompanion">留下这一刻</button>
+  </section>
+
+  <section id="help" class="panel help" hidden>
+    <button id="closeHelp" class="close" aria-label="关闭操作说明">×</button>
+    <h2>慢慢看看这个家</h2>
+    <p>左键拖动旋转，滚轮或双指缩放。双击左键指引麦麦走到地面位置，双击中键选中家具，中键拖动平移视角。点击实际田块打开菜园。</p>
+    <p>麦麦视角会跟随麦麦的眼睛位置，拖动左键可以转头。中键平移会切换到自由视角，按 Esc 收起面板。</p>
+    <p>生活面板显示插件读到的日程和来源；临时房间表情会单独标明。</p>
+    <p class="credits">房间改编自 <a href="https://github.com/sh2234113/feiyu-room-template" target="_blank" rel="noreferrer">feiyu-room-template</a>（MIT），保留原空间与家具。Three.js（MIT）。<br>空间氛围灵感出处见随包 INSPIRATION.md</p>
+  </section>
+
+  <div id="bubble" class="bubble" role="status"></div>
+  <div id="toast" class="toast" role="status"></div>
+  <div id="modelStatus" class="model-status" hidden><span></span><button id="retryModel">重试模型</button></div>
+
+  <footer class="bottom">
+    <nav class="camera-bar" aria-label="镜头模式">
+      <button data-camera="overview" class="active">自由</button><button data-camera="follow">看麦麦</button><button data-camera="eyes">麦麦视角</button>
+      <span class="separator"></span><button id="moveMode" aria-pressed="false" title="点击地面让麦麦走过去">指路</button>
+      <button id="quality" title="切换渲染画质">标准画质</button>
+    </nav>
+    <span class="gesture-hint">左拖旋转 · 中拖平移 · 左双击指路 · 中双击选物</span>
+  </footer>
+  <small class="attribution">麦麦的家 <span> / </span><a href="https://github.com/sh2234113/feiyu-room-template" target="_blank" rel="noreferrer">房间原作与许可</a></small>
+</main>
+<div id="loading" role="status"><div class="loading-inner"><div class="loading-mark">M</div><h2>把家里的灯点亮</h2><p id="loadText">正在准备房间</p><div class="loading-track"><i id="loadBar"></i></div></div></div>
+</template>
+<noscript>这个房间需要启用 JavaScript</noscript>
+<script>/*__ROOM_JS__*/</script>
+</body>
+</html>

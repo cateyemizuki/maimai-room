@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>麦麦的家</title>
+<style>/* Derived from feiyu-room-template 201a4ec (MIT). */
+/* The garden panel is independent of the room's blue HUD. */
+.garden-connection {position:fixed;z-index:15;left:50%;top:92px;transform:translateX(-50%);max-width:90vw;padding:11px 16px;border-radius:12px;background:#fff7df;color:#58452e;font-size:13px;box-shadow:0 8px 24px #0003}
+.garden-connection[hidden]{display:none}
+.garden-connection button{margin-left:10px;background:#526f4c;color:white;border:0;border-radius:6px;padding:6px 10px;cursor:pointer}
+.garden-panel {
+  --garden-ink: #304138;
+  --garden-muted: #768174;
+  --garden-line: #dddccd;
+  --garden-green: #52745a;
+  position: fixed;
+  z-index: 12;
+  top: 94px;
+  right: 22px;
+  bottom: auto;
+  max-height: calc(100dvh - 118px);
+  width: clamp(350px, 24vw, 440px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--garden-ink);
+  background: rgba(249, 247, 236, .97);
+  border: 1px solid rgba(255, 255, 245, .8);
+  border-radius: 22px;
+  box-shadow: 0 18px 55px #162b2840, inset 0 1px #fff;
+  font: 13px/1.55 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  backdrop-filter: blur(18px);
+  isolation: isolate;
+}
+.garden-panel[hidden], .garden-panel [hidden] { display: none !important; }
+.garden-panel *, .garden-panel *::before, .garden-panel *::after { box-sizing: border-box; }
+.garden-panel button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.garden-panel button:disabled { cursor: default; opacity: .45; }
+.garden-panel button:focus-visible, .garden-panel summary:focus-visible {
+  outline: 3px solid #c49b50;
+  outline-offset: 3px;
+}
+.garden-panel h2, .garden-panel h3, .garden-panel p { margin: 0; }
+.garden-header { display: flex; justify-content: space-between; gap: 8px; padding: 22px 21px 15px; flex: none; }
+.garden-eyebrow { color: #7a876e; font-size: 10px; letter-spacing: .15em; margin-bottom: 6px !important; }
+.garden-heading h2 { color: #304638; font-size: 23px; letter-spacing: .035em; line-height: 1.25; font-weight: 650; }
+.garden-header-tools { display: flex; gap: 5px; align-items: flex-start; }
+.garden-icon-button { width: 29px; height: 29px; display: grid; place-items: center; padding: 0; border: 1px solid #daddce; border-radius: 50%; background: #fff9; color: #65765f; font-size: 20px !important; line-height: 1; }
+.garden-icon-button:hover { background: #e8eddf; }
+.garden-status-strip { display: grid; grid-template-columns: repeat(3, 1fr); margin: 0 21px 16px; padding: 11px 0; border-top: 1px solid var(--garden-line); border-bottom: 1px solid var(--garden-line); flex: none; }
+.garden-stat { padding-left: 14px; display: flex; flex-direction: column; gap: 1px; border-left: 1px solid var(--garden-line); }
+.garden-stat:first-child { padding-left: 0; border-left: 0; }
+.garden-stat > span { font-size: 10px; color: var(--garden-muted); letter-spacing: .08em; }
+.garden-stat strong { color: #536443; font-size: 18px; font-weight: 650; line-height: 1.4; font-variant-numeric: tabular-nums; }
+.garden-stewardship { display: flex; align-items: center; gap: 8px; margin: -6px 21px 12px; padding: 8px 0; flex: none; }
+.garden-stewardship-copy { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.garden-stewardship-copy strong { color: #546d4b; font-size: 11px; font-weight: 650; }
+.garden-stewardship-status { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #8a937b; font-size: 9px; }
+.garden-stewardship-controls { display: flex; align-items: center; gap: 5px; flex: none; }
+.garden-auto-toggle, .garden-call-her { border: 1px solid #ccd6be; background: #f4f3e7; color: #7d896e; border-radius: 8px; padding: 7px 7px; min-height: 31px; font-size: 10px !important; white-space: nowrap; }
+.garden-auto-toggle { display: flex; align-items: center; gap: 5px; }
+.garden-auto-toggle::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #b1b4a5; box-shadow: 0 0 0 3px #a9b2971c; }
+.garden-auto-toggle.is-on { color: #496f49; background: #e5edda; border-color: #a7bb94; }
+.garden-auto-toggle.is-on::before { background: #668b55; box-shadow: 0 0 0 3px #88a86c26; }
+.garden-auto-toggle:hover:not(:disabled), .garden-call-her:hover:not(:disabled) { background: #dee9d1; color: #45683e; }
+.garden-body { display: flex; flex-direction: column; min-height: 0; flex: 0 1 auto; overflow: hidden; }
+.garden-tabs { display: flex; gap: 5px; margin: 0 21px 13px; padding: 4px; border-radius: 11px; background: #e9ecdf; flex: none; }
+.garden-tab { flex: 1; border: 0; color: #768170; padding: 6px; background: transparent; border-radius: 8px; font-size: 12px !important; }
+.garden-tab.active { color: #36523e; background: #fffcf4; box-shadow: 0 2px 5px #253c2010; font-weight: 650; }
+.garden-scroll { overflow: auto; min-height: 0; flex: 0 1 auto; padding: 0 21px 20px; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #bac6ad transparent; }
+.garden-section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 7px; margin: 4px 0 9px; }
+.garden-section-heading h3 { font-size: 12px; font-weight: 650; }
+.garden-ready-summary { color: #8c986f; font-size: 10px; }
+.garden-plot-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+.garden-plot-tile { min-width: 0; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-height: 69px; padding: 9px 4px 6px; border: 1px solid #e1ded0; background: #f0ecdf; border-radius: 10px; color: #8b897a; }
+.garden-plot-tile:hover { background: #ebe9da; }
+.garden-plot-tile.selected { background: #e3eada; border: 1.5px solid #73916b; box-shadow: inset 0 0 0 1px #73916b20; color: #4c6948; }
+.garden-plot-tile.is-ripe { background: #f6e8c4; border-color: #cbb774; color: #95772e; }
+.garden-plot-tile.is-ripe.selected { border: 2px solid #aa843b; }
+.garden-plot-tile.is-dry::after { content: "缺水"; position: absolute; right: 3px; top: 2px; color: #ab6f44; font-size: 8px; }
+.garden-plot-number { position: absolute; top: 5px; left: 6px; color: #8f927d; font: 9px/1.2 ui-monospace, monospace; }
+.garden-plot-icon { font-size: 23px; line-height: 1.15; }
+.garden-plot-state { font-size: 9px; margin-top: 3px; }
+.garden-bed-detail { margin-top: 15px; border: 1px solid #e1e1d2; border-radius: 14px; padding: 13px; background: #fffdf4a1; }
+.garden-detail-heading { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.garden-detail-heading h3 { font-size: 14px; color: #314e3c; font-weight: 650; }
+.garden-stage-badge { font-size: 10px; border-radius: 20px; padding: 3px 8px; background: #e6eddf; color: #627c58; white-space: nowrap; }
+.garden-stage-badge.is-ripe { background: #f4e5bd; color: #967333; }
+.garden-stage-badge.is-dry { background: #f3e5d5; color: #a07249; }
+.garden-detail-description { margin-top: 8px !important; color: var(--garden-muted); font-size: 11px; line-height: 1.7; }
+.garden-meters { margin-top: 12px; display: grid; gap: 9px; }
+.garden-meter-label { display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 4px; color: #849078; }
+.garden-meter-value { font-variant-numeric: tabular-nums; }
+.garden-meter-track { height: 5px; border-radius: 6px; overflow: hidden; background: #e7e9dc; }
+.garden-meter-track i { display: block; height: 100%; width: 0; border-radius: inherit; background: #8ba675; transition: width .4s; }
+.garden-meter-water .garden-meter-track i { background: #84b6bb; }
+.garden-meter-water.is-dry .garden-meter-value { color: #b17c4a; }
+.garden-eta { font-size: 10px; color: #95957d; margin: 9px 0 11px !important; line-height: 1.5; }
+.garden-action-row { display: flex; flex-wrap: wrap; gap: 7px; }
+.garden-action { flex: 1 1 40%; border: 1px solid #cbd5bf; border-radius: 9px; padding: 9px 6px; background: #eef2e6; color: #5c7656; font-size: 11px !important; }
+.garden-action:hover:not(:disabled) { background: #e4ecd9; }
+.garden-action-primary { flex: 1 1 100%; background: #5e805e; border-color: #5e805e; color: #fffdf0; font-weight: 600 !important; }
+.garden-action-primary:hover:not(:disabled) { background: #4c704f; }
+.garden-action[data-garden-action="harvest"] { background: #b08e4a; border-color: #b08e4a; }
+.garden-action[data-garden-action="harvest"]:hover:not(:disabled) { background: #9a793d; }
+.garden-seed-picker { margin-top: 16px; }
+.garden-text-button { border: 0; padding: 0; background: none; color: #7a8b60; font-size: 10px !important; }
+.garden-text-button:hover { color: #3d6847; }
+.garden-crop-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.garden-crop-tile { display: grid; grid-template-columns: 25px 1fr; align-items: center; gap: 0 3px; text-align: left; padding: 9px 7px; border: 1px solid #e3e1d3; border-radius: 10px; color: #66735c; background: #fffdf5b0; }
+.garden-crop-tile.selected { border-color: #7b986b; background: #eaf0df; }
+.garden-crop-tile:hover { background: #edf0e3; }
+.garden-crop-icon { font-size: 20px; grid-row: span 2; }
+.garden-crop-name { font-size: 11px; font-weight: 600; }
+.garden-crop-info { font-size: 8px; color: #90937d; white-space: nowrap; }
+.garden-care { margin-top: 16px; border-top: 1px solid var(--garden-line); padding-top: 11px; color: #8a917b; font-size: 11px; }
+.garden-care summary { cursor: pointer; padding: 3px 0; }
+.garden-care-copy { padding-top: 8px; font-size: 10px; line-height: 1.8; }
+.garden-care-copy p + p { margin-top: 7px; }
+.garden-care-steps { color: #5f7859; font-weight: 600; }
+.garden-feedback { border-top: 1px solid #e3e4d5; flex: none; padding: 11px 21px 13px; background: #f0f1e5; color: #8a9479; font-size: 10px; line-height: 1.5; min-height: 40px; }
+.garden-feedback.is-success { color: #597a52; }
+.garden-feedback.is-warning { color: #a27745; }
+.garden-tab-intro { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; padding: 10px 0 16px; border-bottom: 1px solid var(--garden-line); margin-bottom: 11px; }
+.garden-kicker { flex: 1 1 100%; color: #8b967d; font-size: 11px; margin-bottom: 3px; }
+.garden-tab-intro strong { font-size: 36px; line-height: 1.2; font-weight: 500; color: #5d7651; font-variant-numeric: tabular-nums; }
+.garden-storage-unit { font-size: 11px; color: #8d957d; }
+.garden-empty { padding: 23px 13px; text-align: center; color: #92967f; font-size: 12px; line-height: 1.9; }
+.garden-inventory-list, .garden-shop-list { display: grid; gap: 0; }
+.garden-inventory-row, .garden-shop-row { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid #e4e3d6; }
+.garden-list-icon { flex: none; width: 32px; font-size: 25px; text-align: center; }
+.garden-list-copy { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.garden-list-copy > strong { font-size: 12px; font-weight: 600; color: #566b4e; }
+.garden-list-meta { color: #8f9680; font-size: 10px; margin-top: 2px; }
+.garden-small-button { flex: none; border: 1px solid #cdd7bf; border-radius: 8px; padding: 7px 9px; background: #eaf0df; color: #688059; font-size: 10px !important; min-height: 31px; }
+.garden-small-button:hover:not(:disabled) { background: #dfe9d2; }
+.garden-log-heading { margin-top: 24px; }
+.garden-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.garden-log li { display: flex; gap: 10px; font-size: 10px; color: #88937e; }
+.garden-log time { font-size: 9px; color: #a1a68f; padding-top: 1px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.garden-log-empty { color: #a1a68f !important; }
+.garden-shop-intro { padding: 7px 0 10px; }
+.garden-shop-intro h3 { font-size: 14px; font-weight: 600; color: #52704b; }
+.garden-shop-intro p { font-size: 10px; color: #929980; margin-top: 5px; }
+.garden-shop-held { font-size: 9px; color: #a4a58f; margin-top: 2px; }
+.garden-compost-card { display: flex; align-items: center; gap: 9px; margin-top: 17px; padding: 13px 10px; border: 1px solid #dedbc7; border-radius: 12px; background: #efebda; }
+.garden-panel.is-collapsed { bottom: auto; }
+.garden-panel.is-collapsed .garden-header { padding-bottom: 20px; }
+body.garden-open .her-panel, body.garden-open .events-panel, body.garden-open .info,
+body.garden-open #talk, body.garden-open .cam-bar, body.garden-open .hint,
+body.garden-open #info { display: none !important; }
+body.garden-open .chips > #tvChip,
+body.garden-open .chips > #qqChip { display: none !important; }
+body.garden-open .chips > #gardenChip,
+body.garden-open .chips > #camModeChip,
+body.garden-open .chips > #modeChip,
+body.garden-open .chips > #bubbleChip,
+body.garden-open .chips > #clickMoveChip,
+body.garden-open .chips > #soundChip,
+body.garden-open .chips > #viewChip { display: inline-flex !important; }
+@media (max-width: 1050px) and (min-width: 901px) {
+  .garden-panel { width: 350px; right: 14px; top: 91px; bottom: auto; }
+  .garden-header { padding: 18px 17px 13px; }
+  .garden-heading h2 { font-size: 21px; }
+  .garden-status-strip, .garden-tabs, .garden-stewardship { margin-left: 17px; margin-right: 17px; }
+  .garden-scroll { padding-left: 17px; padding-right: 17px; }
+  .garden-feedback { padding-left: 17px; padding-right: 17px; }
+}
+@media (max-width: 900px) {
+  .garden-panel { top: auto; left: 10px; right: 10px; bottom: 10px; width: auto; max-height: 48dvh; border-radius: 20px; }
+  .garden-header { padding: 13px 17px 9px; }
+  .garden-eyebrow { font-size: 8px; margin-bottom: 4px !important; }
+  .garden-heading h2 { font-size: 20px; }
+  .garden-status-strip { margin: 0 17px 9px; padding: 7px 0; }
+  .garden-stat { flex-direction: row; align-items: baseline; gap: 8px; }
+  .garden-stat strong { font-size: 14px; }
+  .garden-tabs { margin: 0 17px 8px; padding: 3px; }
+  .garden-stewardship { margin: -4px 17px 6px; padding: 3px 0; }
+  .garden-stewardship-copy strong { font-size: 10px; }
+  .garden-auto-toggle, .garden-call-her { padding: 5px 7px; min-height: 28px; }
+  .garden-tab { padding: 4px 6px; }
+  .garden-scroll { padding: 0 17px 15px; }
+  .garden-feedback { padding: 8px 17px 9px; min-height: 32px; font-size: 9px; }
+  .garden-plot-grid { gap: 6px; }
+  .garden-plot-tile { min-height: 57px; padding-top: 7px; }
+  .garden-plot-icon { font-size: 20px; }
+  .garden-plot-state { font-size: 8px; }
+  .garden-panel.is-collapsed { bottom: 10px; }
+  .garden-panel.is-collapsed .garden-header { padding-bottom: 14px; }
+  body.garden-open .cam-bar { bottom: auto; top: 101px; }
+  body.garden-open .brand p { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .garden-meter-track i { transition: none; }
+}
+@media (min-width: 901px) and (max-height: 850px) {
+  .garden-header { padding: 11px 17px 8px; }
+  .garden-heading h2 { font-size: 21px; }
+  .garden-eyebrow { margin-bottom: 4px !important; }
+  .garden-status-strip { margin: 0 17px 8px; padding: 5px 0; }
+  .garden-stewardship { margin: -2px 17px 7px; padding: 3px 0; }
+  .garden-auto-toggle, .garden-call-her { padding: 5px 6px; min-height: 28px; }
+  .garden-stat { flex-direction: row; align-items: baseline; gap: 7px; }
+  .garden-stat strong { font-size: 16px; }
+  .garden-tabs { margin: 0 17px 8px; padding: 3px; }
+  .garden-tab { padding: 5px; }
+  .garden-scroll { padding: 0 17px 14px; }
+  .garden-plot-tile { min-height: 50px; }
+  .garden-plot-icon { font-size: 20px; }
+  .garden-bed-detail { margin-top: 11px; padding: 10px; }
+  .garden-meters { margin-top: 9px; gap: 7px; }
+  .garden-feedback { padding: 8px 17px; min-height: 32px; }
+}
+
+
+/* 菜园里的通用相处功能：不依赖床、电视或房间家具。 */
+.garden-companionship{margin:10px 21px 12px;padding:10px 0 0;border-top:1px solid rgba(72,91,96,.13);flex:none}
+.garden-companionship-title{display:flex;align-items:baseline;gap:8px;margin:0 0 8px;color:#30494e;font-size:12px;font-weight:700;letter-spacing:.04em}
+.garden-companionship-title small{font-weight:400;color:#7b9294;font-size:10.5px;letter-spacing:0}
+.garden-social-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.garden-social-button{border:1px solid rgba(58,93,87,.16);border-radius:9px;background:rgba(255,255,255,.56);color:#345156;font:inherit;font-size:11.5px;padding:7px 4px;cursor:pointer;transition:.15s}
+.garden-social-button:hover{background:#fff;border-color:rgba(58,93,87,.3);transform:translateY(-1px)}
+.garden-grab-hint{margin:8px 0 0;color:#7b9294;font-size:10.5px;line-height:1.5}
+@media (max-width:600px){
+  .garden-social-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .garden-social-button{font-size:11px;padding:7px 3px}
+}
+
+
+/* 菜园开启时顶部通用控件很多，窄屏不要再让品牌标题被挤成竖排。 */
+body.garden-open .brand h1 { white-space: nowrap; }
+@media (max-width: 600px) {
+  body.garden-open .brand { display: none; }
+  body.garden-open .top { padding-right: 4px; }
+}
+
+/* “开始照料”是明确的即时命令，比普通自主开关更醒目。 */
+.garden-start-care{border:1px solid #8aa276;background:#5f7f58;color:#fffdf3;border-radius:8px;padding:7px 9px;min-height:31px;font-size:10px !important;white-space:nowrap;font-weight:650}
+.garden-start-care:hover:not(:disabled){background:#4f6f4b}
+.garden-start-care.is-caring{background:#e7efdc;color:#58744d;border-color:#b8c9a8}
+.garden-start-care:disabled{opacity:.55;cursor:not-allowed}
+.garden-conflict{margin:0 21px 10px;padding:11px 12px;border:1px solid #d6b777;border-radius:12px;background:#fff3d7;color:#5b4a2d;box-shadow:0 6px 18px #49300d14}
+.garden-conflict-title{display:block;font-size:12px;margin-bottom:4px}
+.garden-conflict-question{margin:0 0 6px;font-size:11px;line-height:1.55;color:#6e5837}
+.garden-conflict-countdown{display:block;color:#9a7c49;font-size:10px;margin-bottom:8px}
+.garden-conflict-actions{display:flex;gap:6px;flex-wrap:wrap}
+.garden-conflict-defer,.garden-conflict-force{border-radius:8px;padding:6px 9px;font-size:10.5px !important;border:1px solid #c7b58e;background:#fffaf0;color:#755f3c;cursor:pointer}
+.garden-conflict-force{border-color:#6f8c61;background:#6f8c61;color:#fffdf1}
+.garden-conflict-force:hover{background:#5e7b55}
+.garden-conflict-defer:hover{background:#f7e8c8}
+@media (max-width:900px){
+  .garden-stewardship{flex-wrap:wrap;gap:5px}
+  .garden-stewardship-controls{width:100%;justify-content:flex-end}
+  .garden-start-care{padding:5px 7px;min-height:28px}
+  .garden-conflict{margin-left:17px;margin-right:17px}
+  .garden-companionship{margin-left:17px;margin-right:17px}
+  /* The whole sheet scrolls: fixed header/social sections must never squeeze
+     planting, storage and shop controls into a zero-height inner scroller. */
+  .garden-panel{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+  .garden-body{flex:none;overflow:visible;min-height:auto}
+  .garden-scroll{flex:none;overflow:visible;max-height:none;min-height:auto}
+}
+
+:root{--ink:#f4f1e9;--muted:#b5bab7;--accent:#c6dcc8;--gold:#e9c896;--line:#e2e8d329;--card:#172327e8;--shadow:0 18px 60px #09111260;font-synthesis:none;color-scheme:dark}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden}body{font:14px/1.5 var(--maibot-font-body,"Microsoft YaHei",system-ui,sans-serif);background:#111a21;color:var(--ink)}button,input{font:inherit}button{cursor:pointer}button:disabled{cursor:wait;opacity:.45}button:focus-visible,a:focus-visible{outline:2px solid var(--gold);outline-offset:3px}button{color:var(--ink);transition:background .18s,border-color .18s,transform .18s}button:hover{border-color:#c9dfc578;background:#384b4f}button:active{transform:translateY(1px)}[hidden]{display:none!important}#scene{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}#scene.dragging{cursor:grabbing}#scene.picking{cursor:crosshair}#hud{position:fixed;inset:0;pointer-events:none}#hud>*{pointer-events:auto}.top{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:24px 28px;background:linear-gradient(#08141b80,transparent)}.brand{display:flex;gap:12px;align-items:center;pointer-events:none}.brand-mark,.loading-mark{display:grid;place-items:center;border:1px solid #dbe6ca75;background:#b8cbb71c;color:#e7ead9;font-family:Georgia,serif;border-radius:50%;width:42px;height:42px;font-size:24px}.brand h1{margin:0;font-size:20px;letter-spacing:.12em;font-weight:600}.brand p{font:9px/1.6 system-ui,sans-serif;letter-spacing:.2em;color:#c4d1ca;margin:4px 0 0}.top-actions{display:flex;gap:8px;align-items:center}.pill,.icon-button,.status{background:#15232cbb;backdrop-filter:blur(16px);border:1px solid var(--line);padding:8px 13px;border-radius:25px;white-space:nowrap;font-size:12px}.icon-button{height:35px;width:35px;padding:0;border-radius:50%}.status{display:inline-flex;gap:7px;align-items:center;color:#c3cec5;font-size:11px;padding:8px 11px}.status i{height:6px;width:6px;background:#d1ba82;border-radius:50%}.status.online i{background:#a5cea5;box-shadow:0 0 10px #b3f3b352}.status.error i{background:#d59885}.pill[aria-pressed=true],.pill[aria-expanded=true]{border-color:#d6e0c57a;background:#5c716e70}.panel{background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);backdrop-filter:blur(20px);border-radius:18px}.details{position:absolute;top:98px;left:28px;width:284px;max-height:calc(100% - 250px);overflow:auto;padding:20px;scrollbar-width:thin;scrollbar-color:#91a49c60 transparent}.section-heading{display:flex;gap:10px;align-items:center;justify-content:space-between;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#d5dfc9}.section-heading time{font-size:11px;font-variant-numeric:tabular-nums;letter-spacing:.05em;margin-left:auto;color:var(--muted)}.section-heading.small{margin:19px 0 9px;letter-spacing:.08em}.close{border:0;background:transparent;padding:0;width:22px;height:22px;font-size:21px;line-height:20px;color:var(--muted);border-radius:50%}.details>.section-heading>.close{display:none}h2{margin:10px 0 7px;font-size:17px;font-weight:500;letter-spacing:.02em}.character-line{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;color:var(--gold);padding-bottom:16px;border-bottom:1px solid var(--line)}.muted{color:var(--muted);font-size:10px;letter-spacing:0}.life-grid{display:grid;grid-template-columns:1fr;gap:11px;margin:17px 0 0}.life-grid>div{display:flex;justify-content:space-between;gap:14px;align-items:baseline}.life-grid dt{color:var(--muted);font-size:11px;white-space:nowrap}.life-grid dd{margin:0;text-align:right;font-size:11px;color:#e3e5d8;word-break:break-word}.source-hint{font-size:10px;color:#97a9a6;line-height:1.7;margin:13px 0 0}.actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}.actions button,.expression-actions button,.object-actions button{border:1px solid var(--line);background:#34464985;border-radius:8px;padding:8px 7px;font-size:11px}.expression-actions{display:flex;gap:6px}.expression-actions button{flex:1}.qq-hint{font-size:10px;color:#99aba5;margin:15px 0 0}code{font-family:ui-monospace,Consolas,monospace;font-size:10px}.schedule-list{font-size:10px;color:#c2ccc5;display:grid;gap:6px;margin-top:12px}.schedule-item{display:flex;gap:8px}.schedule-item time{font-variant-numeric:tabular-nums;color:#94a9a1}.events{font-size:10px;line-height:1.7;color:#98aca6;margin-top:12px}.events:empty{display:none}.events>div{border-top:1px solid var(--line);padding-top:7px;margin-top:6px}.object-card{position:absolute;right:28px;top:100px;width:270px;padding:20px}.object-card>.close,.help>.close{position:absolute;right:13px;top:12px}.eyebrow{font-size:9px;letter-spacing:.14em;color:#bdcbbd}.object-card p,.help p{font-size:12px;line-height:1.8;color:#c8d1c9;margin:10px 0 15px}.object-actions{display:flex;gap:7px}.object-actions button{flex:1}.object-actions button.primary{background:#b9d3bd;color:#162523;border-color:#c5ddc4}.help{position:absolute;right:28px;top:100px;width:320px;padding:22px;z-index:8}.help h2{font-size:16px}.help .credits{border-top:1px solid var(--line);padding-top:12px;color:#8fa39b;font-size:10px;margin-bottom:0}a{color:#b9d7c0;text-underline-offset:3px}.bottom{position:absolute;left:50%;bottom:25px;transform:translateX(-50%);display:flex;flex-direction:column;gap:9px;align-items:center;max-width:calc(100% - 30px)}.camera-bar{display:flex;gap:4px;align-items:center;padding:5px;border:1px solid var(--line);border-radius:13px;background:#16252de8;backdrop-filter:blur(18px);box-shadow:var(--shadow);white-space:nowrap}.camera-bar button{background:transparent;border:1px solid transparent;border-radius:8px;padding:8px 17px;font-size:12px}.camera-bar button.active,.camera-bar button[aria-pressed=true]{background:#bfd5bf25;border-color:#bfd5bf45;color:#e1ebd7}.camera-bar .separator{width:1px;height:20px;background:var(--line);margin:0 4px}.room-nav{display:flex;gap:5px;overflow:auto;max-width:100%;scrollbar-width:none;white-space:nowrap;padding:0 2px}.room-nav button{background:#16252dd9;border:1px solid var(--line);border-radius:20px;padding:5px 13px;font-size:10px;color:#c7d5ca}.room-nav button.active{border-color:#d5dec475;color:#f8f2db;background:#405653d9}.gesture-hint{font-size:10px;letter-spacing:.08em;color:#d4dbd1aa;pointer-events:none}.attribution{position:absolute;bottom:27px;left:28px;font-size:9px;letter-spacing:.05em;color:#afc2b8a1}.attribution a{color:inherit;text-decoration:none}.attribution span{padding:0 4px}.bubble{position:absolute;max-width:240px;padding:10px 14px;background:#f3efdfef;color:#29372e;border:1px solid #fff5;border-radius:13px;box-shadow:var(--shadow);font-size:12px;transform:translate(-50%,-100%);opacity:0;transition:opacity .2s;pointer-events:none!important}.bubble.show{opacity:1}.bubble:after{content:"";position:absolute;left:50%;bottom:-5px;width:10px;height:10px;background:#f3efdf;transform:translateX(-50%) rotate(45deg)}.toast{position:absolute;left:50%;top:90px;max-width:calc(100% - 30px);transform:translateX(-50%) translateY(-6px);border:1px solid var(--line);border-radius:25px;padding:9px 17px;background:#13252ef2;box-shadow:var(--shadow);font-size:12px;text-align:center;opacity:0;transition:.2s;pointer-events:none!important}.toast.show{opacity:1;transform:translateX(-50%)}.model-status{position:absolute;left:50%;top:90px;transform:translateX(-50%);display:flex;align-items:center;gap:12px;max-width:92%;background:#15232dea;border:1px solid var(--line);border-radius:12px;padding:8px 12px;color:#d2cbbb;font-size:11px}.model-status button{background:transparent;border:1px solid var(--line);border-radius:6px;padding:4px 8px;font-size:10px;white-space:nowrap}#loading{position:fixed;inset:0;display:grid;place-items:center;z-index:20;background:radial-gradient(ellipse at 50% 35%,#2b4245,#14212b 60%,#0d1721);transition:opacity .5s}.loading-inner{text-align:center;width:240px}.loading-mark{margin:0 auto 24px;width:58px;height:58px;font-size:35px;background:#a5c1ab12;animation:breathe 2.2s ease-in-out infinite}.loading-inner h2{font-size:18px;letter-spacing:.12em;font-weight:400}.loading-inner p{font-size:11px;color:#aebfb6;margin:14px 0 20px}.loading-track{height:2px;background:#c4ddc424;overflow:hidden;border-radius:4px}.loading-track i{display:block;width:5%;height:100%;background:#d5dfc6;transition:width .3s}#loading.hide{opacity:0;pointer-events:none}@keyframes breathe{50%{box-shadow:0 0 30px #b2d3b511;transform:translateY(-3px)}}
+.utility-actions{margin-top:12px}.media-panel,.chat-panel,.companion-panel{position:absolute;right:28px;top:98px;width:330px;padding:21px;z-index:9;max-height:calc(100% - 230px);overflow:auto;scrollbar-width:thin}.media-panel>.close,.chat-panel>.close,.companion-panel>.close{position:absolute;right:13px;top:12px}.media-panel p,.companion-panel p{font-size:12px;line-height:1.7;color:#c7d2c8}.media-actions{display:flex;gap:7px;margin:12px 0}.media-actions button,.companion-panel>button:not(.close),.chat-compose button{border:1px solid var(--line);background:#34464985;border-radius:8px;padding:8px 10px;font-size:11px}.media-actions button.primary{background:#b9d3bd;color:#162523;border-color:#c5ddc4}.media-panel video,.media-panel img{display:block;width:100%;max-height:170px;object-fit:contain;background:#10191f;border-radius:9px}.chat-messages{max-height:40vh;min-height:100px;overflow:auto;display:flex;flex-direction:column;gap:10px;margin:17px 0;font-size:12px;line-height:1.8;scrollbar-width:thin}.chat-message{border:1px solid var(--line);border-radius:10px;background:#263b3b70;padding:9px 11px;white-space:pre-wrap;word-break:break-word}.chat-message.user{background:#b8ceba20;margin-left:20px}.chat-message.notice{background:transparent;border-style:dashed;color:#a7bdb0;font-size:10px}.chat-message .sender{display:block;font-size:9px;letter-spacing:.08em;color:#b7c8b5;margin-bottom:4px}.chat-compose{display:flex;gap:6px}.chat-compose input{min-width:0;width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 10px;background:#111f27b3;color:var(--ink);font-size:11px;outline:none}.chat-compose input:focus{border-color:#c4ddba80}.chat-compose button{flex-shrink:0}.companion-panel>img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:11px;border:1px solid var(--line);margin:15px 0}.companion-panel>button:not(.close){width:100%}
+body.garden-open .details,body.garden-open .object-card,body.garden-open .attribution{display:none!important}
+.size-control{display:flex;justify-content:space-between;align-items:center;gap:10px;color:var(--muted);font-size:11px;margin:12px 0}.size-control select{border:1px solid var(--line);background:#263b3b;color:var(--ink);border-radius:7px;padding:6px 9px;font:inherit}.media-panel[data-size=half],.media-panel[data-size=large],.media-panel[data-size=full]{top:7vh;left:50%;right:auto;transform:translateX(-50%);max-height:86vh;width:50vw;min-width:330px}.media-panel[data-size=large]{width:80vw}.media-panel[data-size=full]{inset:10px;transform:none;width:auto;max-height:calc(100% - 20px)}.media-panel[data-size=half] video,.media-panel[data-size=half] img,.media-panel[data-size=large] video,.media-panel[data-size=large] img,.media-panel[data-size=full] video,.media-panel[data-size=full] img{max-height:60vh}.companion-panel[data-size=small]{width:260px}.companion-panel[data-size=large]{width:480px}
+.frame-button{width:100%;border:1px solid var(--line);border-radius:8px;background:#34464985;padding:9px;font:inherit;font-size:11px}.tv-frame-box{border-top:1px solid var(--line);margin-top:14px;padding-top:14px}.tv-frame-box>p{font-size:10px;margin:8px 0;color:var(--muted)}.tv-frame-box .media-actions button{flex:1}.tv-frame-box img{width:100%;max-height:200px;object-fit:contain}
+@media(min-width:1101px){body.details-closed .details{display:none}}
+@media(max-width:1100px){.top{padding:18px}.details{display:none;top:84px;left:18px;max-height:calc(100% - 210px)}body.details-open .details{display:block}.details>.section-heading>.close{display:block}.object-card,.help{top:84px;right:18px}.attribution{left:18px;font-size:8px}.camera-bar button{padding:8px 13px}}
+@media(max-width:680px){.top{padding:14px 13px}.brand{gap:8px}.brand-mark{width:32px;height:32px;font-size:19px}.brand h1{font-size:15px;letter-spacing:.06em}.brand p{font-size:6px;letter-spacing:.12em;margin-top:2px}.top-actions{gap:5px}.pill{padding:7px 9px;font-size:10px}.icon-button{width:29px;height:29px;font-size:11px}.status{border:0;background:transparent;padding:4px;font-size:0;gap:0}.status i{width:6px;height:6px}.details{position:absolute;top:73px;left:12px;right:12px;width:auto;padding:17px;max-height:calc(100% - 207px);border-radius:15px}.life-grid{grid-template-columns:1fr 1fr;column-gap:18px}.life-grid>div{display:block}.life-grid dd{text-align:left;margin-top:3px}.actions{grid-template-columns:repeat(3,1fr)}.actions button{padding:9px 4px}.details .source-hint{margin-top:8px}.section-heading.small{margin-top:14px}.qq-hint{margin-top:12px}.object-card,.help{top:74px;left:12px;right:12px;width:auto;padding:18px}.bottom{bottom:14px;max-width:calc(100% - 20px);gap:8px}.camera-bar{gap:1px;padding:4px;width:max-content;max-width:100%;border-radius:11px}.camera-bar button{font-size:11px;padding:8px 11px}.camera-bar .separator{margin:0 2px}.room-nav{width:100%;justify-content:flex-start}.room-nav button{padding:5px 11px;font-size:10px}.gesture-hint{font-size:8px}.attribution{display:none}.toast,.model-status{top:74px;font-size:11px}.model-status{max-width:calc(100% - 25px)}.bubble{font-size:11px;max-width:180px}.loading-inner{width:210px}}
+@media(max-width:360px){.brand p{display:none}.brand h1{font-size:14px}.brand-mark{display:none}.pill{padding:6px 8px}.camera-bar button{padding:7px 8px;font-size:10px}}
+@media(max-width:680px){.media-panel,.chat-panel,.companion-panel{top:74px;left:12px;right:12px;width:auto;max-height:calc(100% - 210px);padding:18px}.chat-messages{max-height:34vh}.utility-actions button{padding:8px 5px}.interactions{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:680px){.media-panel[data-size],.companion-panel[data-size]{left:12px;right:12px;width:auto;min-width:0;transform:none}.media-panel[data-size=full]{inset:8px;max-height:calc(100% - 16px)}}
+@media(max-height:480px){.top{padding:9px 14px}.brand p{display:none}.brand-mark{width:29px;height:29px;font-size:18px}.brand h1{font-size:15px}.details{top:57px;max-height:calc(100% - 149px)}.object-card,.help{top:57px;max-height:calc(100% - 149px);overflow:auto}.bottom{bottom:8px;gap:5px}.gesture-hint{display:none}.room-nav button{padding:3px 10px}.camera-bar button{padding:5px 12px}.attribution{display:none}.toast,.model-status{top:55px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
+
+#room-entry-status:not([hidden]){display:block;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);padding:.8em 1.15em;color:#f3ead9;background:#233432;border:1px solid #58685c;border-radius:12px;font:inherit}
+
+body.garden-open .gesture-hint{display:none}
+@media(min-width:901px){body.garden-open .bottom{left:calc((100% - clamp(350px,24vw,440px))/2)}}
+@media(max-width:900px){body.garden-open .bottom{bottom:calc(48dvh + 20px);left:50%}}
+</style>
+</head>
+<body>
+<button type="button" id="room-entry-status" hidden></button>
+<template id="room-template">
+<canvas id="scene" aria-label="麦麦的三维房间，左键拖动旋转，中键拖动平移，双击左键指路，双击中键选中家具"></canvas>
+<main id="hud">
+  <header class="top">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"><img id="roomLogo" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit"></span><div><h1>麦麦的家</h1><p>MAISAKA / A LITTLE EVERYDAY</p></div></div>
+    <div class="top-actions">
+      <span id="connection" class="status" role="status"><i></i><span>连接中</span></span>
+      <button id="lamp" class="pill" aria-pressed="true">灯光</button>
+      <button id="detailsToggle" class="pill" aria-expanded="false" aria-controls="details">生活面板</button>
+      <button id="helpToggle" class="icon-button" aria-label="操作说明" title="操作说明">?</button>
+    </div>
+  </header>
+
+  <aside id="details" class="panel details">
+    <div class="section-heading"><span>此刻</span><time id="clock">—</time><button id="closeDetails" class="close" aria-label="收起生活面板">×</button></div>
+    <h2 id="activity">正在等房间状态</h2>
+    <div class="character-line"><span id="location">客厅</span><span id="actionSource" class="muted">—</span></div>
+    <dl class="life-grid">
+      <div><dt>生活情绪</dt><dd id="lifeMood">等待来源</dd></div>
+      <div><dt>房间表情</dt><dd id="expression">自然</dd></div>
+      <div><dt>日程来源</dt><dd id="scheduleSource">等待来源</dd></div>
+      <div><dt>当前安排</dt><dd id="scheduleNow">—</dd></div>
+    </dl>
+    <div id="scheduleList" class="schedule-list"></div>
+    <p id="lifeHint" class="source-hint">房间状态由插件统一管理</p>
+    <div class="section-heading small"><span>房间动作</span><span class="muted">与 QQ 共用</span></div>
+    <div class="actions">
+      <button data-command="stand">站起来</button><button data-command="sit" data-target="sofa">坐沙发</button>
+      <button data-command="sleep">去睡觉</button><button data-command="wake">醒来</button>
+      <button data-command="walk" data-target="balcony">去阳台</button><button data-command="auto">跟随日程</button>
+    </div>
+    <div class="section-heading small"><span>表情</span><span class="muted">临时房间表情</span></div>
+    <div class="expression-actions"><button data-command="mood" data-target="开心">开心</button><button data-command="mood" data-target="困">困了</button><button data-command="mood" data-target="恢复">自然</button></div>
+    <div class="section-heading small"><span>角色精度</span><span id="modelQualityState" class="muted">标准模型</span></div>
+    <div class="expression-actions"><button id="modelQuality">切换精细模型</button><button id="charMode">切换立绘</button></div>
+    <div class="section-heading small"><span>一起待一会儿</span><span class="muted">点一下互动</span></div>
+    <div class="actions interactions"><button data-command="pet">摸摸头</button><button data-command="poke">轻轻戳</button><button data-command="feed">给点吃的</button><button data-command="water">倒杯水</button><button data-command="play">陪她玩</button><button data-command="dance">跳个舞</button><button data-command="stretch">伸懒腰</button><button data-command="bow">行个礼</button></div>
+    <div class="expression-actions utility-actions"><button id="tvToggle">打开电视</button><button id="chatToggle">聊一会儿</button><button id="companionToggle">陪伴卡</button></div>
+    <p class="qq-hint">QQ：<code>/room 走 阳台</code> · <code>/room 坐</code></p>
+    <div id="events" class="events" aria-live="polite"></div>
+  </aside>
+
+  <section id="objectCard" class="panel object-card" hidden>
+    <button id="closeObject" class="close" aria-label="关闭家具详情">×</button>
+    <span class="eyebrow">房间里的小物件</span><h2 id="objectTitle"></h2><p id="objectDescription"></p>
+    <div class="object-actions"><button id="objectGo" class="primary">走过去</button><button id="objectUse">在这里休息</button><button id="objectTv" hidden>打开电视</button></div>
+  </section>
+
+  <section id="tvPanel" class="panel media-panel" hidden>
+    <button id="closeTv" class="close" aria-label="收起电视面板">×</button>
+    <span class="eyebrow">一起看看屏幕</span><h2>房间里的电视</h2>
+    <p id="mediaStatus">选一张照片或一段视频，放到电视里</p>
+    <div class="media-actions"><button id="pickMedia" class="primary">选本地照片 / 视频</button><button id="shareScreen">共享屏幕</button></div>
+    <input id="mediaFile" type="file" accept="image/png,image/jpeg,image/webp,video/mp4,video/webm,video/ogg" hidden>
+    <p id="screenShareInfo" class="source-hint"></p>
+    <video id="mediaVideo" controls muted playsinline hidden></video><img id="mediaImage" alt="当前投到电视的本地照片" hidden>
+    <div class="media-actions"><button id="mediaPause" hidden>暂停</button><button id="mediaStop" hidden>关掉投屏</button></div>
+    <label class="size-control">观看窗口<select id="mediaSize" aria-label="电视观看窗口大小"><option value="small">小窗</option><option value="half">50%</option><option value="large">80%</option><option value="full">铺满页面</option></select></label>
+    <button id="captureTvFrame" class="frame-button" disabled>截取当前电视帧</button>
+    <div id="tvFrameBox" class="tv-frame-box" hidden><img id="tvFrameImage" alt="刚截取的电视单帧预览"><p id="tvFrameCaption"></p><p id="tvReviewInfo" class="source-hint">单帧点评会把上面这一帧发给宿主已配置的 vlm 视觉模型，可能产生调用费用。只在你点“发送此帧点评”后发送。</p><div class="media-actions"><button id="saveTvFrame" disabled>保存到房间</button><button id="reviewTvFrame" disabled>发送此帧点评</button></div></div>
+    <p id="tvFrameStatus" class="source-hint" role="status"></p>
+    <p class="source-hint">选择保存或点评之前，本地媒体只在当前页面播放。保存位置是房间插件的 tv_frames 目录。</p>
+  </section>
+
+  <section id="chatPanel" class="panel chat-panel" hidden>
+    <button id="closeChat" class="close" aria-label="收起房间聊天">×</button><span class="eyebrow">房间里的对话</span><h2>和麦麦聊一会儿</h2>
+    <p id="chatSource" class="source-hint">麦麦的小屋专属宿主聊天流。聊天记录保存在宿主，可在此继续查看回复。</p><div id="chatMessages" class="chat-messages" aria-live="polite"></div>
+    <div class="chat-compose"><input id="chatInput" maxlength="1000" placeholder="想和麦麦说什么" aria-label="房间聊天内容"><button id="chatSend">发送</button></div>
+  </section>
+
+  <section id="companionPanel" class="panel companion-panel" hidden>
+    <button id="closeCompanion" class="close" aria-label="收起陪伴卡">×</button><span class="eyebrow">A MOMENT AT HOME</span><h2 id="companionTitle">麦麦在家</h2>
+    <img id="companionImage" alt="房间中麦麦的当前三维画面"><p id="companionCaption"></p><label class="size-control">卡片大小<select id="companionSize" aria-label="陪伴卡大小"><option value="small">小</option><option value="medium" selected>中</option><option value="large">大</option></select></label><button id="refreshCompanion">留下这一刻</button>
+  </section>
+
+  <section id="help" class="panel help" hidden>
+    <button id="closeHelp" class="close" aria-label="关闭操作说明">×</button>
+    <h2>慢慢看看这个家</h2>
+    <p>左键拖动旋转，滚轮或双指缩放。双击左键指引麦麦走到地面位置，双击中键选中家具，中键拖动平移视角。点击实际田块打开菜园。</p>
+    <p>麦麦视角会跟随麦麦的眼睛位置，拖动左键可以转头。中键平移会切换到自由视角，按 Esc 收起面板。</p>
+    <p>生活面板显示插件读到的日程和来源；临时房间表情会单独标明。</p>
+    <p class="credits">房间改编自 <a href="https://github.com/sh2234113/feiyu-room-template" target="_blank" rel="noreferrer">feiyu-room-template</a>（MIT），保留原空间与家具。Three.js（MIT）。<br>空间氛围灵感出处见随包 INSPIRATION.md</p>
+  </section>
+
+  <div id="bubble" class="bubble" role="status"></div>
+  <div id="toast" class="toast" role="status"></div>
+  <div id="modelStatus" class="model-status" hidden><span></span><button id="retryModel">重试模型</button></div>
+
+  <footer class="bottom">
+    <nav class="camera-bar" aria-label="镜头模式">
+      <button data-camera="overview" class="active">自由</button><button data-camera="follow">看麦麦</button><button data-camera="eyes">麦麦视角</button>
+      <span class="separator"></span><button id="moveMode" aria-pressed="false" title="点击地面让麦麦走过去">指路</button>
+      <button id="quality" title="切换渲染画质">标准画质</button>
+    </nav>
+    <span class="gesture-hint">左拖旋转 · 中拖平移 · 左双击指路 · 中双击选物</span>
+  </footer>
+  <small class="attribution">麦麦的家 <span> / </span><a href="https://github.com/sh2234113/feiyu-room-template" target="_blank" rel="noreferrer">房间原作与许可</a></small>
+</main>
+<div id="loading" role="status"><div class="loading-inner"><div class="loading-mark">M</div><h2>把家里的灯点亮</h2><p id="loadText">正在准备房间</p><div class="loading-track"><i id="loadBar"></i></div></div></div>
+</template>
+<noscript>这个房间需要启用 JavaScript</noscript>
+<script>// Only this small loader and the inert UI template belong to the dashboard entry.
+const assets = {"plain":{"size":890378,"sha256":"2819ee4cf299c3607319c092f5c778960d19e8e97f537b42fd8f66267cd70f37"},"gzip":{"size":343771,"sha256":"24299805d7e44ebc6c00ed12080e923a4c148be3ba29185dbbfea7f38c61ff6c"}};
+const template = document.getElementById('room-template');
+const status = document.getElementById('room-entry-status');
+let inView = false, pageActive = true, session = null, queue = Promise.resolve();
+let starts = 0, stops = 0, chunks = 0, lastRelease = null;
+let releaseAt = 0, releaseTimer = 0, renderGraceSeconds = 600;
+let clientConfig = {renderGraceSeconds:600,desktopFps:60};
+const resourceCache = new Map();
+const cancelled = () => new DOMException('Room closed', 'AbortError');
+
+function stop() {
+  if (!session) return;
+  const old = session;
+  session = null;
+  old.controller.abort();
+  old.root.remove();
+  document.body.classList.remove('details-open','details-closed');
+  delete window.__maisakaRoom;
+  stops++;
+  resourceCache.clear();
+  status.hidden = true;
+}
+
+async function start() {
+  const controller = new AbortController();
+  const {signal} = controller;
+  const root = document.createElement('div');
+  session = {controller,root};
+  starts++;
+  const active = () => !signal.aborted && pageActive && ((!document.hidden && inView) || (releaseAt > Date.now()));
+  const guard = () => { if (!active()) throw cancelled(); };
+  function request(kind,name,args={}) {
+    const run = async () => {
+      guard();
+      const result = await window.maibot[kind](name,args);
+      guard();
+      return result;
+    };
+    const next = queue.then(run,run);
+    queue = next.then(()=>{},()=>{});
+    return next;
+  }
+  let timeout;
+  const abort = new Promise((_,reject)=>signal.addEventListener('abort',()=>reject(cancelled()),{once:true}));
+  try {
+    status.hidden = false; status.textContent = '正在进入麦麦的小屋';
+    if (!window.maibot?.ready) throw Error('请从 MaiBot 的插件页面打开房间');
+    await Promise.race([window.maibot.ready,abort,new Promise((_,reject)=>{
+      timeout = setTimeout(()=>reject(Error('宿主握手超时')),10000);
+    })]);
+    clearTimeout(timeout);
+    guard();
+    clientConfig = await request('query','client_config');
+    renderGraceSeconds = Math.max(0, Math.min(3600, Number(clientConfig.renderGraceSeconds) || 0));
+    const encoding = typeof DecompressionStream === 'function' ? 'gzip' : 'plain';
+    const {size,sha256} = assets[encoding];
+    const bytes = new Uint8Array(size);
+    const step = 196608;
+    for (let index=0,offset=0; offset<size; index++,offset+=step) {
+      const part = await request('query','runtime_chunk',{encoding,index});
+      chunks++;
+      if (part.index!==index || part.size!==size) throw Error('房间文件已更新，请重新进入');
+      const binary=atob(part.data);
+      if(binary.length!==Math.min(size-offset,step)) throw Error('房间文件不完整');
+      for(let i=0;i<binary.length;i++) bytes[offset+i]=binary.charCodeAt(i);
+    }
+    if(globalThis.crypto?.subtle){
+      const digest=await crypto.subtle.digest('SHA-256',bytes);
+      if(Array.from(new Uint8Array(digest),x=>x.toString(16).padStart(2,'0')).join('')!==sha256)throw Error('房间文件校验失败');
+    }
+    const source = encoding==='plain' ? new TextDecoder().decode(bytes) :
+      await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+    guard();
+    root.append(template.content.cloneNode(true));
+    document.body.append(root);
+    const script=document.createElement('script');
+    script.textContent=source;
+    let mounted=false;
+    window.__attachMaisaka = mount => {
+      guard();mounted=true;
+      const controls=mount({root,signal,request,clientConfig,resourceCache,isVisible:()=>!document.hidden&&inView,onRelease:value=>{lastRelease=value;}});
+      if(session?.controller===controller)session.resume=controls?.resume;
+    };
+    try { document.head.append(script); }
+    finally { script.remove(); delete window.__attachMaisaka; }
+    if (!mounted) throw Error('房间场景未能启动');
+    status.hidden=true;
+  } catch (error) {
+    if(signal.aborted)return;
+    stop();
+    status.hidden=false;
+    status.textContent=(error?.message||'打开房间失败')+'，点此重试';
+  } finally { clearTimeout(timeout); }
+}
+
+function sync() {
+  if (!pageActive) { stop(); return; }
+  if (releaseAt && Date.now() >= releaseAt) { clearTimeout(releaseTimer); releaseAt=0; stop(); }
+  if (document.hidden || !inView) {
+    if(session && !releaseAt){
+      releaseAt=Date.now()+renderGraceSeconds*1000;
+      releaseTimer=setTimeout(()=>{releaseAt=0;stop();},renderGraceSeconds*1000);
+    }
+    return;
+  }
+  const resuming=!!releaseAt;
+  clearTimeout(releaseTimer); releaseAt=0;
+  if (!session) void start();
+  else if(resuming)session.resume?.();
+}
+const observer=new IntersectionObserver(entries=>{
+  const last=entries[entries.length-1];
+  inView=last.isIntersecting && last.intersectionRect.width>0 && last.intersectionRect.height>0;
+  sync();
+});
+observer.observe(document.documentElement);
+status.addEventListener('click',sync);
+document.addEventListener('visibilitychange',sync);
+function leave(){pageActive=false;clearTimeout(releaseTimer);releaseAt=0;stop();}
+window.addEventListener('pagehide',leave);
+document.addEventListener('freeze',sync);
+window.addEventListener('pageshow',()=>{pageActive=true;sync();});
+document.addEventListener('resume',()=>{pageActive=true;sync();});
+window.__maisakaLifecycle=()=>({active:!!session,inView,starts,stops,chunks,lastRelease,releaseAt,renderGraceSeconds});
+</script>
+</body>
+</html>

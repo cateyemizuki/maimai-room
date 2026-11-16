@@ -1,0 +1,287 @@
+{
+  "schema_version": 2,
+  "required_capabilities": [
+    "custom_pages"
+  ],
+  "workspace_title": "麦麦的小屋",
+  "pages": [
+    {
+      "id": "room",
+      "mode": "custom",
+      "title": "麦麦的小屋",
+      "icon": "puzzle",
+      "placement": "sidebar",
+      "entry": "web/index.html",
+      "layout": "viewport",
+      "queries": {
+        "runtime_chunk": {
+          "api": "room_runtime_chunk",
+          "version": "1",
+          "parameters": {
+            "encoding": {
+              "type": "string",
+              "required": true,
+              "choices": [
+                "plain",
+                "gzip"
+              ]
+            },
+            "index": {
+              "type": "integer",
+              "required": true,
+              "minimum": 0,
+              "maximum": 31
+            }
+          }
+        },
+        "summary": {
+          "api": "room_snapshot",
+          "version": "1"
+        },
+        "tv_status": {
+          "api": "room_tv_status",
+          "version": "1",
+          "parameters": {
+            "request_id": {
+              "type": "string",
+              "required": true,
+              "max_length": 128
+            }
+          }
+        },
+        "chat_status": {
+          "api": "room_chat_status",
+          "version": "1",
+          "parameters": {
+            "request_id": {
+              "type": "string",
+              "required": true,
+              "max_length": 128
+            }
+          }
+        },
+        "model_info": {
+          "api": "room_model_info",
+          "version": "1",
+          "parameters": {
+            "asset": {
+              "type": "string",
+              "required": false,
+              "choices": [
+                "maisaka.glb"
+              ]
+            },
+            "quality": {
+              "type": "string",
+              "required": false,
+              "choices": [
+                "mobile",
+                "high"
+              ]
+            },
+            "encoding": {
+              "type": "string",
+              "required": false,
+              "choices": [
+                "plain",
+                "gzip"
+              ]
+            }
+          }
+        },
+        "model_chunk": {
+          "api": "room_model_chunk",
+          "version": "1",
+          "parameters": {
+            "asset": {
+              "type": "string",
+              "required": false,
+              "choices": [
+                "maisaka.glb"
+              ]
+            },
+            "quality": {
+              "type": "string",
+              "required": false,
+              "choices": [
+                "mobile",
+                "high"
+              ]
+            },
+            "index": {
+              "type": "integer",
+              "required": true,
+              "minimum": 0,
+              "maximum": 106
+            },
+            "encoding": {
+              "type": "string",
+              "required": false,
+              "choices": [
+                "plain",
+                "gzip"
+              ]
+            }
+          }
+        },
+        "client_config": {
+          "api": "room_client_config",
+          "version": "1"
+        },
+        "media_chunk": {
+          "api": "room_media_chunk",
+          "version": "1",
+          "parameters": {
+            "media_id": {
+              "type": "string",
+              "required": true,
+              "max_length": 64
+            },
+            "index": {
+              "type": "integer",
+              "required": true,
+              "minimum": 0,
+              "maximum": 1365
+            }
+          }
+        },
+        "chat_history": {
+          "api": "room_chat_history",
+          "version": "1",
+          "parameters": {
+            "after_seq": {
+              "type": "integer",
+              "required": false,
+              "minimum": 0
+            }
+          }
+        }
+      },
+      "actions": {
+        "tv_review": {
+          "api": "room_tv_review",
+          "version": "1",
+          "parameters": {
+            "image_data": {
+              "type": "string",
+              "required": true,
+              "max_length": 48000
+            },
+            "request_id": {
+              "type": "string",
+              "required": true,
+              "max_length": 128
+            }
+          }
+        },
+        "tv_save_frame": {
+          "api": "room_tv_save_frame",
+          "version": "1",
+          "parameters": {
+            "image_data": {
+              "type": "string",
+              "required": true,
+              "max_length": 48000
+            },
+            "request_id": {
+              "type": "string",
+              "required": true,
+              "max_length": 128
+            }
+          }
+        },
+        "garden": {
+          "api": "room_garden_action",
+          "version": "1",
+          "parameters": {
+            "action": {
+              "type": "string",
+              "required": true,
+              "max_length": 24
+            },
+            "plot": {
+              "type": "integer",
+              "required": false,
+              "minimum": -1,
+              "maximum": 7
+            },
+            "crop": {
+              "type": "string",
+              "required": false,
+              "max_length": 24
+            },
+            "quantity": {
+              "type": "integer",
+              "required": false,
+              "minimum": 1,
+              "maximum": 99
+            },
+            "request_id": {
+              "type": "string",
+              "required": false,
+              "max_length": 96
+            }
+          }
+        },
+        "chat_send": {
+          "api": "room_chat_send",
+          "version": "1",
+          "parameters": {
+            "text": {
+              "type": "string",
+              "required": true,
+              "max_length": 2000
+            },
+            "request_id": {
+              "type": "string",
+              "required": true,
+              "max_length": 128
+            }
+          }
+        },
+        "interact": {
+          "api": "room_interact",
+          "version": "1",
+          "parameters": {
+            "command": {
+              "type": "string",
+              "required": true,
+              "max_length": 24
+            },
+            "target": {
+              "type": "string",
+              "required": false,
+              "max_length": 80
+            },
+            "request_id": {
+              "type": "string",
+              "required": false,
+              "max_length": 128
+            }
+          }
+        },
+        "ui_event": {
+          "api": "room_ui_event",
+          "version": "1",
+          "parameters": {
+            "name": {
+              "type": "string",
+              "required": true,
+              "max_length": 64
+            },
+            "detail": {
+              "type": "string",
+              "required": false,
+              "max_length": 2048
+            },
+            "request_id": {
+              "type": "string",
+              "required": false,
+              "max_length": 128
+            }
+          }
+        }
+      }
+    }
+  ]
+}

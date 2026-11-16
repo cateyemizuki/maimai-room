@@ -1,0 +1,9 @@
+{
+  "name": "maimai-room-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Self-contained MaiBot custom WebUI room, derived from feiyu-room-template",
+  "scripts": { "build": "node build.mjs" },
+  "devDependencies": { "esbuild": "0.28.2" }
+}
