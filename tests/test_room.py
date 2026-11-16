@@ -169,6 +169,8 @@ class FakeGateway:
     async def route_message(self, gateway_name, message, **kwargs):
         if not self.supported:
             return False
+        if message.get("platform") != "maimai_room" or not message.get("message_id") or not isinstance(message.get("raw_message"), list):
+            raise RuntimeError("[E_BAD_PAYLOAD] Gateway messages require top-level route fields")
         self.sends.append(message)
         return True
 

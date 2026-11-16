@@ -157,6 +157,17 @@ class IntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.ctx.gateway.sends), 1)
         self.assertEqual((await self.plugin.room_chat_status(request_id))["status"], "sent")
 
+    async def test_native_gateway_payload_rejection_is_definitive(self):
+        async def reject(*args, **kwargs):
+            raise RuntimeError("[E_BAD_PAYLOAD] invalid route fields")
+        self.ctx.gateway.route_message = reject
+        request_id = "native-invalid-route-001"
+        await self.plugin.room_chat_send("无效网关参数测试", request_id)
+        await asyncio.gather(*list(self.plugin._chat.tasks))
+        self.assertEqual((await self.plugin.room_chat_status(request_id))["status"], "error")
+        history = await self.plugin.room_chat_history()
+        self.assertFalse(any(r["id"] == "room-"+request_id for r in history["messages"]))
+
     async def test_tool_default_lists_and_force_do_not_grant_access(self):
         defaults = self.plugin.get_default_config()
         self.assertTrue(defaults["tools"]["enabled"])

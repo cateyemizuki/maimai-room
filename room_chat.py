@@ -166,12 +166,14 @@ class RoomChatBridge:
                 turn.update(status="sent" if previous.get("status", "sent") == "sent" else "unknown",
                             notice="这条消息已有专属流记录，请查看聊天记录")
                 return
-            message = {"account_id": ACCOUNT, "scope": SCOPE,
+            message = {"platform": PLATFORM, "account_id": ACCOUNT, "scope": SCOPE,
+                       "message_id": message_id, "timestamp": str(time.time()),
+                       "session_id": self.session_id, "is_at": True, "is_mentioned": True,
                        "message_info": {"platform": PLATFORM, "message_id": message_id, "time": time.time(),
                                         "user_info": {"platform": PLATFORM, "user_id": USER, "user_nickname": "博士 · 麦麦的小屋"},
                                         "additional_config": {"at_bot": True, "relayed_by_plugin": "cateye.maimai_room"}},
                        "message_segment": {"type": "seglist", "data": [{"type": "text", "data": text}]},
-                       "raw_message": text, "processed_plain_text": text}
+                       "raw_message": [{"type": "text", "data": text}], "processed_plain_text": text}
             self._append(message_id, "user", text, "queued")
             attempted = True
             accepted = await asyncio.wait_for(self.ctx.gateway.route_message(
@@ -194,12 +196,18 @@ class RoomChatBridge:
                 if row["id"] == turn["messageId"]:
                     row["status"] = "unknown"
             await self._save()
-        except Exception:
-            turn.update(status="unknown" if attempted else "error", notice="专属聊天投递尚未确认，请在宿主聊天记录中核实" if attempted else "专属聊天流当前不可用")
+        except Exception as error:
+            self.ctx.logger.warning("房间专属聊天投递异常，%s", str(error)[:350])
+            rejected = str(error).startswith(("[E_BAD_PAYLOAD]", "[E_METHOD_NOT_ALLOWED]"))
+            uncertain = attempted and not rejected
+            turn.update(status="unknown" if uncertain else "error", notice="专属聊天投递尚未确认，请在宿主聊天记录中核实" if uncertain else "专属聊天流当前不可用")
             if attempted:
-                for row in self.history:
-                    if row["id"] == turn["messageId"]:
-                        row["status"] = "unknown"
+                if rejected:
+                    self.history = [row for row in self.history if row["id"] != turn["messageId"]]
+                else:
+                    for row in self.history:
+                        if row["id"] == turn["messageId"]:
+                            row["status"] = "unknown"
                 await self._save()
 
     def status(self, request_id: str) -> dict[str, Any]:

@@ -1,6 +1,6 @@
 # 麦麦的小屋 API
 
-适用于插件 1.3.0、MaiBot SDK 2.20 及以上。插件 ID 为 `cateye.maimai_room`，本文所有 API 的版本均为字符串 `"1"`。
+适用于插件 1.3.1、MaiBot SDK 2.20 及以上。插件 ID 为 `cateye.maimai_room`，本文所有 API 的版本均为字符串 `"1"`。
 
 ## 调用与返回
 
