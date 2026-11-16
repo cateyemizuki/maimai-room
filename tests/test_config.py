@@ -17,8 +17,9 @@ class ConfigTests(unittest.TestCase):
             field = schema["sections"]["tools"]["fields"][name]
             self.assertEqual(field["type"], "select")
             self.assertEqual(field["choices"], ["whitelist", "blacklist"])
-            self.assertEqual(field["i18n"]["zh"]["choice:whitelist"], "白名单")
-            self.assertEqual(field["i18n"]["zh"]["choice:blacklist"], "黑名单")
+            for separator in (":", "."):
+                self.assertEqual(field["i18n"]["zh"][f"choice{separator}whitelist"], "白名单")
+                self.assertEqual(field["i18n"]["zh"][f"choice{separator}blacklist"], "黑名单")
 
     def test_removed_settings_do_not_change_active_configuration(self):
         config = MODULE.RoomConfig.model_validate({

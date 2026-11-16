@@ -39,8 +39,11 @@ def _config_ui(label: str, english: str, *, list_mode: bool = False) -> dict[str
     zh = {"label": label}
     en = {"label": english}
     if list_mode:
-        zh.update({"choice:whitelist": "白名单", "choice:blacklist": "黑名单"})
-        en.update({"choice:whitelist": "Allowlist", "choice:blacklist": "Blocklist"})
+        # Both schema consumers are deployed: the SDK renderer uses a colon,
+        # while the host's choice-label adapter uses a dot.
+        for separator in (":", "."):
+            zh.update({f"choice{separator}whitelist": "白名单", f"choice{separator}blacklist": "黑名单"})
+            en.update({f"choice{separator}whitelist": "Allowlist", f"choice{separator}blacklist": "Blocklist"})
     return {"label": label, "i18n": {"zh": zh, "en": en}}
 
 
