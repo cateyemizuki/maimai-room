@@ -24,6 +24,11 @@ SPEC.loader.exec_module(MODULE)
 CORE = sys.modules[SPEC.name + ".room_core"]
 
 
+def unconnected_life():
+    return {"available": False, "source": "unavailable", "activity": None, "schedule": [],
+            "mood": {"available": False, "source": "unavailable", "label": "未接入情绪接口"}}
+
+
 class CoreTests(unittest.TestCase):
     def test_navigation_graph_arrival_and_pose(self):
         state = CORE.empty_state(1000)
@@ -65,7 +70,7 @@ class CoreTests(unittest.TestCase):
     def test_expression_source_expiry_and_persistence(self):
         state = CORE.empty_state(1000)
         CORE.apply_action(state, "心情", "开心", now=1000, hold_seconds=10)
-        view = CORE.snapshot(state, MODULE.unavailable_life(), "麦麦", 1001)
+        view = CORE.snapshot(state, unconnected_life(), "麦麦", 1001)
         self.assertEqual(view["character"]["expression"]["source"], "user")
         self.assertFalse(view["life"]["mood"]["available"])
         CORE.tick(state, 1011)
@@ -96,7 +101,7 @@ class CoreTests(unittest.TestCase):
 
     def test_transient_gesture_is_shared_and_expires_without_life_mutation(self):
         state = CORE.empty_state(1000)
-        life = MODULE.unavailable_life()
+        life = unconnected_life()
         for action in ("pet", "poke", "feed", "water", "play", "dance", "stretch", "bow"):
             CORE.apply_action(state, action, now=1000, source="qq", request_id="gesture:" + action)
             gesture = CORE.snapshot(state, life, "麦麦", 1000)["character"]["gesture"]
@@ -105,7 +110,7 @@ class CoreTests(unittest.TestCase):
             self.assertFalse(CORE.advance_auto(state, life, 1001))
         CORE.tick(state, 1010)
         self.assertIsNone(state["character"]["gesture"])
-        self.assertEqual(life, MODULE.unavailable_life())
+        self.assertEqual(life, unconnected_life())
 
 
 class FakeAPI:

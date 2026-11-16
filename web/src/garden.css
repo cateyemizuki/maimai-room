@@ -1,8 +1,5 @@
 /* Derived from feiyu-room-template 201a4ec (MIT). */
 /* The garden panel is independent of the room's blue HUD. */
-.garden-connection {position:fixed;z-index:15;left:50%;top:92px;transform:translateX(-50%);max-width:90vw;padding:11px 16px;border-radius:12px;background:#fff7df;color:#58452e;font-size:13px;box-shadow:0 8px 24px #0003}
-.garden-connection[hidden]{display:none}
-.garden-connection button{margin-left:10px;background:#526f4c;color:white;border:0;border-radius:6px;padding:6px 10px;cursor:pointer}
 .garden-panel {
   --garden-ink: #304138;
   --garden-muted: #768174;
@@ -141,18 +138,6 @@
 .garden-compost-card { display: flex; align-items: center; gap: 9px; margin-top: 17px; padding: 13px 10px; border: 1px solid #dedbc7; border-radius: 12px; background: #efebda; }
 .garden-panel.is-collapsed { bottom: auto; }
 .garden-panel.is-collapsed .garden-header { padding-bottom: 20px; }
-body.garden-open .her-panel, body.garden-open .events-panel, body.garden-open .info,
-body.garden-open #talk, body.garden-open .cam-bar, body.garden-open .hint,
-body.garden-open #info { display: none !important; }
-body.garden-open .chips > #tvChip,
-body.garden-open .chips > #qqChip { display: none !important; }
-body.garden-open .chips > #gardenChip,
-body.garden-open .chips > #camModeChip,
-body.garden-open .chips > #modeChip,
-body.garden-open .chips > #bubbleChip,
-body.garden-open .chips > #clickMoveChip,
-body.garden-open .chips > #soundChip,
-body.garden-open .chips > #viewChip { display: inline-flex !important; }
 @media (max-width: 1050px) and (min-width: 901px) {
   .garden-panel { width: 350px; right: 14px; top: 91px; bottom: auto; }
   .garden-header { padding: 18px 17px 13px; }

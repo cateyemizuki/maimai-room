@@ -1,6 +1,6 @@
 import * as THREE from '../upstream/vendor/three.module.js';
 
-export function mountRoomMedia({world,toast,capture,getSnapshot,onOpen,request,signal,delay,setTimeout,$}){
+export function mountRoomMedia({world,reportError,capture,getSnapshot,onOpen,request,signal,delay,setTimeout,$}){
   const screen=world.tvScreen;
   const original={map:screen.material.map,emissiveMap:screen.material.emissiveMap};
   let canvas,ctx,texture;
@@ -169,7 +169,7 @@ export function mountRoomMedia({world,toast,capture,getSnapshot,onOpen,request,s
   }
   $('captureTvFrame').addEventListener('click',captureFrame);$('saveTvFrame').addEventListener('click',()=>submitFrame(false));$('reviewTvFrame').addEventListener('click',()=>submitFrame(true));
   $('mediaPause').addEventListener('click',async()=>{if(video.paused){try{await video.play();$('mediaPause').textContent='暂停';}catch(error){status(error.message);}}else{video.pause();$('mediaPause').textContent='继续播放';}});
-  function companion(){const state=getSnapshot();$('companionTitle').textContent=(state?.character?.name||'麦麦')+'在家';$('companionCaption').textContent=(state?.life?.activity?.name||'在家里待一会儿')+' · '+new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});try{$('companionImage').src=capture();closeSmallDetails();$('companionPanel').hidden=false;}catch(error){toast('这次画面没有留下：'+error.message);}}
+  function companion(){const state=getSnapshot();$('companionTitle').textContent=(state?.character?.name||'麦麦')+'在家';$('companionCaption').textContent=(state?.life?.activity?.name||'在家里待一会儿')+' · '+new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});try{$('companionImage').src=capture();closeSmallDetails();$('companionPanel').hidden=false;}catch(error){reportError('这次画面没有留下：'+error.message);}}
   $('companionToggle').addEventListener('click',companion);$('refreshCompanion').addEventListener('click',companion);$('closeCompanion').addEventListener('click',()=>{$('companionPanel').hidden=true;});
   detectSharing();
   return {get active(){return active;},updateSnapshot:setCapabilities,animate(now){if(active&&kind!=='image'&&!video.paused&&video.readyState>=2&&now-lastDraw>42){draw();lastDraw=now;}},inspect:()=>({active,kind,screenSharingAllowed:canShare,mapOnTv:!!texture&&screen.material.map===texture,textureReady:active&&texture.image.width===960,paused:video.paused,frame:capturedFrame?{width:capturedFrame.width,height:capturedFrame.height,length:capturedFrame.image_data.length,source:capturedFrame.source}:null,saveEnabled,reviewEnabled,frameStatus,frameBusy}),dispose(){stop(false);texture?.dispose();if(canvas){canvas.width=canvas.height=1;}capturedFrame=null;video.onloadeddata=null;video.onerror=null;image.onload=null;image.onerror=null;},closePanels(){for(const id of ['tvPanel','companionPanel'])$(id).hidden=true;}};

@@ -1,4 +1,4 @@
-export function mountRoomChat({request,signal,delay,$,isModelLoading,getName,toast,isVisible=()=>!document.hidden}){
+export function mountRoomChat({request,signal,delay,$,isModelLoading,getName,isVisible=()=>!document.hidden}){
   let sending=false,watching=false,lastStatus='idle',afterSeq=0;
   const seen=new Set();
   function line(role,message,id=''){

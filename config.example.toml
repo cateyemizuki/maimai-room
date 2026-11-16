@@ -1,5 +1,5 @@
 [plugin]
-config_version = "1.2.0"
+config_version = "1.3.0"
 enabled = true
 character_name = "麦麦"
 
@@ -16,14 +16,6 @@ webui_controls = true
 automatic = true
 manual_hold_seconds = 900
 walking_speed = 1.15
-
-[life]
-# 兼容旧配置的保留字段。新版不轮询生活插件，使用公开接口主动接入。
-enabled = false
-plugin_id = "cateye.life_belonging_to_maimai"
-poll_seconds = 30
-# 当前生活插件没有公开情绪 API；空值会明确显示未接入。
-mood_api = ""
 
 [chat]
 # 只在用户点击发送时使用宿主内部聊天；聊天内容也会同步出现在宿主原生聊天室。

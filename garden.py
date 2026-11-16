@@ -5,7 +5,6 @@ return fresh state. Time is trusted server time, expressed in milliseconds.
 """
 from __future__ import annotations
 
-from copy import deepcopy
 from pathlib import Path
 from typing import Any
 

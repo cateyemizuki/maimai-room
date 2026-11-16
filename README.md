@@ -8,7 +8,7 @@ MaiBot SDK 自定义 3D 房间插件。角色、家具互动、日程、园艺�
 
 ## 界面预览
 
-本地功能验收示例。
+房间与菜园界面。
 
 ![房间与菜园](docs/garden-preview.png)
 
@@ -99,7 +99,7 @@ desktop_fps = 60
 
 标准模型采用无损 gzip 传输，按宿主预算分成 9 块。两档原始 GLB 及对应压缩文件随包保存。浏览器私有资源通道、单帧保存和用户主动触发的视觉点评见 API 文档。
 
-配置模板为 `config.example.toml`。插件存档包含房间、园艺、互动游标及回调管理回执，聊天镜像为专属数据目录下的 `room_chat.json`。备份或迁移时使用宿主插件数据目录。
+宿主配置页提供中文分组、字段名称和黑白名单选项，配置键名保持稳定。配置模板为 `config.example.toml`。插件存档包含房间、园艺、互动游标及回调管理回执，聊天镜像为专属数据目录下的 `room_chat.json`。备份或迁移时使用宿主插件数据目录。
 
 ## 开发验证
 
@@ -110,10 +110,10 @@ python -m unittest discover -s tests -p "test_*.py"
 python tests/validate_host.py --host-src <MaiBot源码目录> --report <报告路径>
 ```
 
-测试覆盖权限、日程接管、寻路、快照投影、事件、专属聊天回执和媒体。接口约束由原始宿主校验器检查，实际宿主与浏览器验收按发行记录执行。
+测试覆盖权限、日程接管、寻路、快照投影、事件、专属聊天回执、配置界面和媒体。
 
 ## 来源与许可
 
-源码采用 MIT，第三方许可保存在 `web/licenses/` 和 `web/THIRD_PARTY_NOTICES.md`。房间规则与导航源自 [feiyu-room-template](https://github.com/sh2234113/feiyu-room-template)，固定参考提交为 `201a4ecad48e7e77cfdd6422fb8f55a77a7b9f5f`，场景几何已本地重建。
+源码采用 MIT，第三方许可保存在 `web/licenses/` 和 `web/THIRD_PARTY_NOTICES.md`。房间规则与导航源自 [feiyu-room-template](https://github.com/sh2234113/feiyu-room-template)，固定参考提交为 `201a4ecad48e7e77cfdd6422fb8f55a77a7b9f5f`，场景采用重新编写的程序化几何。上游作者为 sh2234113；完整版权声明见 [原 MIT 许可](web/licenses/LICENSE)。
 
-角色形象参考 [MaiBot 官方角色设定](https://maibot.chat/about/)，运行模型为本地制作，Logo 使用本次提供的房屋与橙子图。原有署名和第三方许可随源码保留。
+角色形象参考 [MaiBot 官方角色设定](https://maibot.chat/about/)，运行模型为定制制作，Logo 为房屋与橙子图。角色及图像素材不因代码采用 MIT 而重新授权。

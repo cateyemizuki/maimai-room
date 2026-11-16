@@ -3,7 +3,7 @@ import * as THREE from '../upstream/vendor/three.module.js';
 import { createGardenWorld, GARDEN_PLOTS } from './garden-world.js';
 import { mountGardenUI } from './garden-ui.js';
 
-export function mountGarden({world,renderer,camera,hostQuery,hostAction,onToast=()=>{},onOpen=()=>{},onClose=()=>{},onSnapshot=()=>{}}) {
+export function mountGarden({world,renderer,camera,hostQuery,hostAction,onError=()=>{},onOpen=()=>{},onClose=()=>{},onSnapshot=()=>{}}) {
   let model=null,ui=null,shown=false,checkedAt=-Infinity,painted=null;
   const gardenBounds=new THREE.Box3(new THREE.Vector3(-1.1,-.3,-7.7),new THREE.Vector3(13.2,2.3,-.25));
   const frustum=new THREE.Frustum(),projection=new THREE.Matrix4();
@@ -29,7 +29,7 @@ export function mountGarden({world,renderer,camera,hostQuery,hostAction,onToast=
   }
   async function act(input){
     if(busy)return {ok:false,message:'上一项安排还在保存，请稍等'};
-    if(view?.controlsEnabled===false){onToast('房间操作已关闭');return {ok:false,message:'房间操作已关闭'};}
+    if(view?.controlsEnabled===false){return {ok:false,message:'房间操作已关闭'};}
     const type=input.type;
     const action=type==='auto'?(input.enabled?'auto_on':'auto_off'):
       type==='careNow'&&input.decision?(input.decision==='force'?'careForce':'careDefer'):type;
@@ -40,23 +40,22 @@ export function mountGarden({world,renderer,camera,hostQuery,hostAction,onToast=
     try{
       const result=accept(await hostAction('garden',args));
       if(Number.isInteger(input.plotId))select(input.plotId);
-      if(result?.message)onToast(result.message);
       return result;
     }catch(error){
       const message=String(error?.message||error||'菜园安排暂未确认，请等待同步后查看').slice(0,180);
-      onToast(message);return {ok:false,message};
+      return {ok:false,message};
     }finally{busy=false;}
   }
   async function homeAction(command){
     if(busy)return;
     busy=true;
     try{accept(await hostAction('interact',{command,request_id:globalThis.crypto?.randomUUID?.()||`garden-home-${Date.now()}`}));}
-    catch(error){onToast(String(error?.message||error).slice(0,180));}
+    catch(error){onError(String(error?.message||error).slice(0,180));}
     finally{busy=false;}
   }
   async function refresh(){
     if(!hostQuery||busy||disposed)return;
-    try{accept(await hostQuery('summary',{}));}catch(error){onToast(String(error?.message||error).slice(0,180));}
+    try{accept(await hostQuery('summary',{}));}catch(error){onError(String(error?.message||error).slice(0,180));}
   }
   function setOpen(value){
     if(disposed)return;

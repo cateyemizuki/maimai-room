@@ -13,7 +13,7 @@ import json
 import time
 
 from .garden import (ACTIONS, BY_ID, CROPS, PLOT_ACTIONS, RULES, advance_garden, apply_garden_action,
-                     clean, create_garden, garden_view, normalize_garden, plan_garden_action)
+                     clean, create_garden, garden_view, plan_garden_action)
 from .room_core import apply_action, bump, resolve_target, travel
 
 LABELS = {"till": "松土", "plant": "播种", "water": "浇水", "fertilize": "施肥", "harvest": "采收",

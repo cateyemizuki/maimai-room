@@ -1,6 +1,6 @@
 # 麦麦的小屋 API
 
-适用于插件 1.3.1、MaiBot SDK 2.20 及以上。插件 ID 为 `cateye.maimai_room`，本文所有 API 的版本均为字符串 `"1"`。
+适用于插件 1.3 系列、MaiBot SDK 2.20 及以上。插件 ID 为 `cateye.maimai_room`，本文所有 API 的版本均为字符串 `"1"`。
 
 ## 调用与返回
 
@@ -278,7 +278,7 @@ room_media_control(
 | `seek` | position_seconds，0–864000 |
 | `volume` | volume，0–1，及 muted |
 
-地址最长 8192 字符，标题最多保留 160 字符。支持 MP4、WebM、Ogg 及声明的音频 MIME。小主机下载后由宿主分块通道提供给页面。网页播放器地址需要提供方解析为媒体直链。单个媒体默认上限 64 MiB，可配置至 256 MiB。
+地址最长 8192 字符，标题最多保留 160 字符。支持 MP4、WebM、Ogg 及声明的音频 MIME。宿主下载后由宿主分块通道提供给页面。网页播放器地址需要提供方解析为媒体直链。单个媒体默认上限 64 MiB，可配置至 256 MiB。
 
 ```python
 await call_room(
@@ -296,7 +296,7 @@ await call_room(
 
 ## 房间专属聊天流
 
-1.3.0 使用独立原生流，平台为 `maimai_room`，账号为 `maimai_room_bot`，用户为 `room_owner`，scope 为 `maimai_room`。消息通过本插件的 duplex 网关进入宿主，由该网关接收对应流的出站回复。
+房间聊天使用独立原生流，平台为 `maimai_room`，账号为 `maimai_room_bot`，用户为 `room_owner`，scope 为 `maimai_room`。消息通过本插件的 duplex 网关进入宿主，由该网关接收对应流的出站回复。
 
 专属消息仍由宿主聊天核心处理，并保存在宿主聊天记录中。页面使用有界本地镜像续看，保留最近 200 条。投递中断会标记状态，镜像保留范围内的持久请求 ID 可避免已发送消息在重载后重复投递。
 

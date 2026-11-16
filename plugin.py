@@ -4,7 +4,7 @@ from __future__ import annotations
 from contextlib import suppress
 from copy import deepcopy
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import asyncio
 import base64
@@ -35,74 +35,90 @@ HELP = ("房间指令：/room 状态；/room 站；/room 走 阳台；/room 坐 
         "地点：沙发、床、书桌、阳台、厨房、餐桌、卫生间、菜园、门口。第三方可通过公开接口接管行为与日程。")
 
 
+def _config_ui(label: str, english: str, *, list_mode: bool = False) -> dict[str, Any]:
+    zh = {"label": label}
+    en = {"label": english}
+    if list_mode:
+        zh.update({"choice:whitelist": "白名单", "choice:blacklist": "黑名单"})
+        en.update({"choice:whitelist": "Allowlist", "choice:blacklist": "Blocklist"})
+    return {"label": label, "i18n": {"zh": zh, "en": en}}
+
+
 class PluginSection(PluginConfigBase):
-    config_version: str = Field(default="1.2.0", description="插件配置版本")
-    enabled: bool = Field(default=True, description="启用房间")
-    character_name: str = Field(default="麦麦", max_length=32, description="房间角色显示名")
+    __ui_label__ = "基本设置"
+    __ui_order__ = 0
+    __ui_i18n__ = {"en": {"title": "General"}}
+    config_version: str = Field(default="1.3.0", description="配置结构版本，由插件维护", json_schema_extra=_config_ui("配置版本", "Configuration version"))
+    enabled: bool = Field(default=True, description="启用房间", json_schema_extra=_config_ui("启用房间", "Enable room"))
+    character_name: str = Field(default="麦麦", max_length=32, description="房间角色显示名", json_schema_extra=_config_ui("角色名称", "Character name"))
 
 
 class AccessSection(PluginConfigBase):
-    allowed_users: list[str] = Field(default_factory=list, description="可操控房间的 QQ 用户，填写 qq:号码；非空时优先使用此名单")
-    inherit_host_operators: bool = Field(default=True, description="房间用户白名单为空时，只读继承宿主 plugin.permission 中明确配置的 QQ 管理员")
-    allowed_groups: list[str] = Field(default_factory=list, description="允许的 QQ 群号，留空不额外限制；仍须用户白名单")
-    public_status: bool = Field(default=False, description="允许非白名单用户查询状态；默认关闭")
-    webui_controls: bool = Field(default=True, description="允许已经登录 MaiBot WebUI 的用户操作房间")
+    __ui_label__ = "操作权限"
+    __ui_order__ = 10
+    __ui_i18n__ = {"en": {"title": "Access"}}
+    allowed_users: list[str] = Field(default_factory=list, description="可操控房间的 QQ 用户，填写 qq:号码；非空时优先使用此名单", json_schema_extra=_config_ui("QQ 操作者白名单", "QQ operators"))
+    inherit_host_operators: bool = Field(default=True, description="房间用户白名单为空时，只读继承宿主 plugin.permission 中明确配置的 QQ 管理员", json_schema_extra=_config_ui("继承宿主管理员", "Inherit host operators"))
+    allowed_groups: list[str] = Field(default_factory=list, description="允许的 QQ 群号，留空不额外限制；仍须用户白名单", json_schema_extra=_config_ui("允许操作的 QQ 群", "Allowed QQ groups"))
+    public_status: bool = Field(default=False, description="允许非白名单用户查询状态；默认关闭", json_schema_extra=_config_ui("公开状态查询", "Public status queries"))
+    webui_controls: bool = Field(default=True, description="允许已经登录 MaiBot WebUI 的用户操作房间", json_schema_extra=_config_ui("允许网页操作", "Allow WebUI controls"))
 
 
 class BehaviourSection(PluginConfigBase):
-    automatic: bool = Field(default=True, description="按第三方主动接入的活动运行；没有接入时使用固定作息")
-    manual_hold_seconds: int = Field(default=900, ge=10, le=28800, description="手动姿态覆盖自动活动的秒数；/room 自动 可立即解除")
-    walking_speed: float = Field(default=1.15, ge=0.2, le=3, description="房间每秒移动米数")
-
-
-class LifeSection(PluginConfigBase):
-    enabled: bool = Field(default=False, description="兼容旧配置的保留字段；新版通过 room_control / room_schedule_update 主动接入")
-    plugin_id: str = Field(default="cateye.life_belonging_to_maimai", max_length=128, description="生活插件 manifest ID")
-    poll_seconds: int = Field(default=30, ge=10, le=600, description="生活公开 API 查询间隔")
-    mood_api: str = Field(default="", max_length=160, description="可选受支持的公开情绪 API 完整名；当前生活插件没有公开情绪 API，默认保持空")
+    __ui_label__ = "行为与日程"
+    __ui_order__ = 20
+    __ui_i18n__ = {"en": {"title": "Behaviour and routine"}}
+    automatic: bool = Field(default=True, description="按第三方主动接入的活动运行；没有接入时使用固定作息", json_schema_extra=_config_ui("自动作息", "Automatic routine"))
+    manual_hold_seconds: int = Field(default=900, ge=10, le=28800, description="手动姿态覆盖自动活动的秒数；/room 自动 可立即解除", json_schema_extra=_config_ui("手动动作保持时长（秒）", "Manual hold (seconds)"))
+    walking_speed: float = Field(default=1.15, ge=0.2, le=3, description="房间每秒移动米数", json_schema_extra=_config_ui("行走速度（米/秒）", "Walking speed (m/s)"))
 
 
 class ToolSection(PluginConfigBase):
-    enabled: bool = Field(default=True, description="允许 bot 用工具调节房间中的自身状态；仍须会话名单放行")
-    force_enabled: bool = Field(default=False, description="第三方插件接管行为时仍允许调节工具；会话名单限制继续生效")
-    private_mode: str = Field(default="whitelist", pattern="^(whitelist|blacklist)$", description="私聊 whitelist 白名单 / blacklist 黑名单")
-    private_users: list[str] = Field(default_factory=list, description="私聊身份，QQ 可填纯号码或 qq:号码，房间专属流填 maimai_room:room_owner；默认空白名单")
-    group_mode: str = Field(default="whitelist", pattern="^(whitelist|blacklist)$", description="群聊 whitelist 白名单 / blacklist 黑名单")
-    groups: list[str] = Field(default_factory=list, description="QQ 群号，可填纯号码或 qq:号码；默认空白名单")
+    __ui_label__ = "状态调节工具"
+    __ui_order__ = 30
+    __ui_i18n__ = {"en": {"title": "State adjustment tool"}}
+    enabled: bool = Field(default=True, description="允许 bot 用工具调节房间中的自身状态；仍须会话名单放行", json_schema_extra=_config_ui("启用调节工具", "Enable adjustment tool"))
+    force_enabled: bool = Field(default=False, description="第三方插件接管行为时仍允许调节工具；会话名单限制继续生效", json_schema_extra=_config_ui("接管期间强制启用", "Keep enabled during takeover"))
+    private_mode: Literal["whitelist", "blacklist"] = Field(default="whitelist", description="白名单仅允许名单中的私聊，黑名单允许名单之外的私聊", json_schema_extra=_config_ui("私聊名单模式", "Private chat list mode", list_mode=True))
+    private_users: list[str] = Field(default_factory=list, description="私聊身份，QQ 可填纯号码或 qq:号码，房间专属流填 maimai_room:room_owner；默认空白名单", json_schema_extra=_config_ui("私聊名单", "Private chat identities"))
+    group_mode: Literal["whitelist", "blacklist"] = Field(default="whitelist", description="白名单仅允许名单中的群聊，黑名单允许名单之外的群聊", json_schema_extra=_config_ui("群聊名单模式", "Group chat list mode", list_mode=True))
+    groups: list[str] = Field(default_factory=list, description="QQ 群号，可填纯号码或 qq:号码；默认空白名单", json_schema_extra=_config_ui("群聊名单", "Group chat identities"))
 
 
 class PerformanceSection(PluginConfigBase):
-    render_grace_seconds: int = Field(default=600, ge=0, le=3600, description="已打开的房间切出后保留渲染资源的秒数，超时释放")
-    desktop_fps: int = Field(default=60, ge=24, le=120, description="标准画质前台目标帧率；省电档使用 24 FPS")
+    __ui_label__ = "性能与保活"
+    __ui_order__ = 60
+    __ui_i18n__ = {"en": {"title": "Performance and retention"}}
+    render_grace_seconds: int = Field(default=600, ge=0, le=3600, description="已打开的房间切出后保留渲染资源的秒数，超时释放；默认 600 秒（10 分钟）", json_schema_extra=_config_ui("切出保活时长（秒）", "Hidden resource retention (seconds)"))
+    desktop_fps: int = Field(default=60, ge=24, le=120, description="标准画质前台目标帧率；省电档使用 24 FPS", json_schema_extra=_config_ui("标准画质目标帧率", "Standard quality target FPS"))
 
 
 class ChatSection(PluginConfigBase):
-    enabled: bool = Field(default=True, description="启用房间专属宿主聊天流，仅在用户发送时投递消息")
+    __ui_label__ = "专属聊天"
+    __ui_order__ = 40
+    __ui_i18n__ = {"en": {"title": "Dedicated chat"}}
+    enabled: bool = Field(default=True, description="启用房间专属宿主聊天流，仅在用户发送时投递消息", json_schema_extra=_config_ui("启用房间专属聊天", "Enable dedicated room chat"))
 
 
 class TVSection(PluginConfigBase):
-    plugin_playback_enabled: bool = Field(default=True, description="允许其他插件通过公开接口指定音视频 HTTP(S) 直链")
-    max_video_mib: int = Field(default=64, ge=1, le=256, description="单个接入视频的下载上限，MiB；经宿主分块传入页面")
-    save_enabled: bool = Field(default=True, description="允许用户主动保存已预览的单帧到本机插件数据目录")
-    review_enabled: bool = Field(default=True, description="允许用户主动把预览的单帧发给已配置 vlm 视觉模型，可能产生调用费用；不自动截屏或发送")
-    cooldown_seconds: int = Field(default=30, ge=30, le=3600, description="单帧视觉点评最短间隔秒数")
+    __ui_label__ = "电视与媒体"
+    __ui_order__ = 50
+    __ui_i18n__ = {"en": {"title": "TV and media"}}
+    plugin_playback_enabled: bool = Field(default=True, description="允许其他插件通过公开接口指定音视频 HTTP(S) 直链", json_schema_extra=_config_ui("允许插件指定媒体", "Allow plugin media playback"))
+    max_video_mib: int = Field(default=64, ge=1, le=256, description="单个接入视频的下载上限，MiB；经宿主分块传入页面", json_schema_extra=_config_ui("媒体大小上限（MiB）", "Maximum media size (MiB)"))
+    save_enabled: bool = Field(default=True, description="允许用户主动保存已预览的单帧到插件数据目录", json_schema_extra=_config_ui("允许保存电视画面", "Allow saving TV frames"))
+    review_enabled: bool = Field(default=True, description="允许用户主动把预览的单帧发给已配置 vlm 视觉模型，可能产生调用费用；不自动截屏或发送", json_schema_extra=_config_ui("允许视觉点评", "Allow visual reviews"))
+    cooldown_seconds: int = Field(default=30, ge=30, le=3600, description="单帧视觉点评最短间隔秒数", json_schema_extra=_config_ui("视觉点评冷却（秒）", "Visual review cooldown (seconds)"))
 
 
 class RoomConfig(PluginConfigBase):
     plugin: PluginSection = Field(default_factory=PluginSection)
     access: AccessSection = Field(default_factory=AccessSection)
     behaviour: BehaviourSection = Field(default_factory=BehaviourSection)
-    life: LifeSection = Field(default_factory=LifeSection)
     chat: ChatSection = Field(default_factory=ChatSection)
     tv: TVSection = Field(default_factory=TVSection)
     tools: ToolSection = Field(default_factory=ToolSection)
     performance: PerformanceSection = Field(default_factory=PerformanceSection)
-
-
-def unavailable_life(reason: str = "awaiting_first_poll") -> dict[str, Any]:
-    return {"available": False, "source": "unavailable", "activity": None, "schedule": [],
-            "mood": {"available": False, "source": "unavailable", "label": "未接入生活情绪"},
-            "reason": reason, "updatedAt": 0}
 
 
 class MaiMaimaiRoomPlugin(MaiBotPlugin):
@@ -111,7 +127,8 @@ class MaiMaimaiRoomPlugin(MaiBotPlugin):
     def __init__(self) -> None:
         super().__init__()
         self._state = empty_state()
-        self._life = unavailable_life()
+        self._control = BehaviourControl()
+        self._life = self._control.current(time.time())
         self._lock = asyncio.Lock()
         self._workers: list[asyncio.Task] = []
         self._state_path: Path | None = None
@@ -121,11 +138,9 @@ class MaiMaimaiRoomPlugin(MaiBotPlugin):
         self._activity_wakeup = asyncio.Event()
         self._model_cache: dict[str, tuple[int, int, dict[str, Any]]] = {}
         self._last_command: dict[str, float] = {}
-        self._integration_reason = ""
         self._chat: RoomChatBridge | None = None
         self._tv: RoomTVBridge | None = None
         self._media: RoomMedia | None = None
-        self._control = BehaviourControl()
         self._tool_visible: bool | None = None
         self._event_queue: asyncio.Queue = asyncio.Queue(maxsize=128)
 

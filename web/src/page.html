@@ -45,6 +45,7 @@
     <div class="expression-actions"><button id="modelQuality">切换精细模型</button><button id="charMode">切换立绘</button></div>
     <div class="section-heading small"><span>一起待一会儿</span><span class="muted">点一下互动</span></div>
     <div class="actions interactions"><button data-command="pet">摸摸头</button><button data-command="poke">轻轻戳</button><button data-command="feed">给点吃的</button><button data-command="water">倒杯水</button><button data-command="play">陪她玩</button><button data-command="dance">跳个舞</button><button data-command="stretch">伸懒腰</button><button data-command="bow">行个礼</button></div>
+    <p id="interactionError" class="source-hint" role="alert" hidden></p>
     <div class="expression-actions utility-actions"><button id="tvToggle">打开电视</button><button id="chatToggle">聊一会儿</button><button id="companionToggle">陪伴卡</button></div>
     <p class="qq-hint">QQ：<code>/room 走 阳台</code> · <code>/room 坐</code></p>
     <div id="events" class="events" aria-live="polite"></div>
@@ -92,8 +93,6 @@
     <p class="credits">房间改编自 <a href="https://github.com/sh2234113/feiyu-room-template" target="_blank" rel="noreferrer">feiyu-room-template</a>（MIT），保留原空间与家具。Three.js（MIT）。<br>空间氛围灵感出处见随包 INSPIRATION.md</p>
   </section>
 
-  <div id="bubble" class="bubble" role="status"></div>
-  <div id="toast" class="toast" role="status"></div>
   <div id="modelStatus" class="model-status" hidden><span></span><button id="retryModel">重试模型</button></div>
 
   <footer class="bottom">
@@ -104,7 +103,6 @@
     </nav>
     <span class="gesture-hint">左拖旋转 · 中拖平移 · 左双击指路 · 中双击选物</span>
   </footer>
-  <small class="attribution">麦麦的家 <span> / </span><a href="https://github.com/sh2234113/feiyu-room-template" target="_blank" rel="noreferrer">房间原作与许可</a></small>
 </main>
 <div id="loading" role="status"><div class="loading-inner"><div class="loading-mark">M</div><h2>把家里的灯点亮</h2><p id="loadText">正在准备房间</p><div class="loading-track"><i id="loadBar"></i></div></div></div>
 </template>

@@ -504,9 +504,6 @@ function art(b,x,y,z,w,h,variant=0) {
 }
 
 
-function centers(){return {kitchen:[2.1,1.8],dining:[2.1,5.6],living:[6.3,3.8],her_room:[10.8,2.2],corridor:[10.8,5],bathroom:[12,6.9],laundry:[9.6,6.6],balcony:[4.1,8.3],foyer:[.7,6.2],garden:[6.05,-3.9],yard:[-.625,3.375]};}
-export function roomCenter(id) {return centers()[id]||[6.3,3.8];}
-
 function makeScreen() {
   const material=new THREE.MeshStandardMaterial({color:0xffffff,emissive:0x161e1b,emissiveIntensity:.48,roughness:.88,metalness:0,toneMapped:false});
   const canvas=document.createElement('canvas');canvas.width=384;canvas.height=216;
@@ -520,8 +517,6 @@ function makeScreen() {
     const map=new THREE.CanvasTexture(canvas);map.colorSpace=THREE.SRGBColorSpace;material.map=map;
   }return material;
 }
-function makeLabelGroup(){return new THREE.Group();}
-
 function addWalls(root,mat) {
   const walls=[];
   function wall(axis,fixed,from,to,opts={}) {
@@ -628,7 +623,6 @@ function ownedResources(root) {
 export function createWorld(renderer,{quality='balanced'}={}) {
   const scene=new THREE.Scene(),root=new THREE.Group();root.name='Clover Cottage';scene.add(root);
   const mat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.88,metalness:0});
-  const wallGhost=new THREE.MeshBasicMaterial({color:0xc6b69b,transparent:true,opacity:.09,depthWrite:false});
   const pickMat=new THREE.MeshBasicMaterial({visible:false});
   const architecture=new Woodshop();
   const footprint=[[0,0],[13.2,0],[13.2,8.2],[10.8,8.2],[10.8,7.6],[8.2,7.6],[8.2,9],[0,9]];
@@ -658,7 +652,6 @@ export function createWorld(renderer,{quality='balanced'}={}) {
   const ceiling=new THREE.Group();ceiling.name='Ceiling';const cb=new Woodshop();
   for(const [x,z,w,d] of [[4.18,3.8,8.35,7.6],[10.78,2.8,4.75,5.6],[9.60,6.60,2.4,2.0],[12,6.90,2.4,2.6]])cb.box(x,2.842,z,w,.076,d,0xe0cfb1);
   ceiling.add(cb.mesh(mat,'Ceiling soffit'));ceiling.visible=false;root.add(ceiling);
-  const labels=makeLabelGroup();labels.visible=false;root.add(labels);
   const clockHands=timepiece(root,mat);
   const screenMat=makeScreen(),tvScreen=new THREE.Mesh(new THREE.PlaneGeometry(1.772,.995),screenMat);tvScreen.position.set(6.3,1.19,.478);tvScreen.name='Television picture';root.add(tvScreen);
   const hotspots=hotspotList(root,pickMat);const release=ownedResources(root);let disposed=false;
@@ -666,9 +659,9 @@ export function createWorld(renderer,{quality='balanced'}={}) {
   sun.position.set(-2,11,-1.5);sun.target.position.set(6,0,2);scene.add(ambient,sun,sun.target);
   const fill=new THREE.DirectionalLight(0xd9e8dd,.51);fill.position.set(9,5,11);scene.add(fill);
   const state={hour:-1,lamp:null,asleep:null,kind:null};const sky=new THREE.Color();scene.background=sky.setHex(0x354b4b);
-  return {scene,root,walls,hotspots,clockHands,ceiling,labels,tvScreen,quality,mats:{wallGhost},occluders:getBoxes(),
+  return {scene,root,walls,hotspots,clockHands,ceiling,tvScreen,quality,occluders:getBoxes(),
     setClock(hours,minutes){clockHands.hour.rotation.z=-TAU*((hours%12)+minutes/60)/12;clockHands.minute.rotation.z=-TAU*minutes/60;},
-    setCeilingVisible(flag){ceiling.visible=Boolean(flag);},setLabelsVisible(flag){labels.visible=Boolean(flag);},
+    setCeilingVisible(flag){ceiling.visible=Boolean(flag);},
     updateEnvironment({hour=12,lamp=false,asleep=false,kind=''}={}) {
       const h=Math.floor(hour);if(state.hour===h&&state.lamp===lamp&&state.asleep===asleep&&state.kind===kind)return {shadowDirty:false};
       const day=Math.max(0,Math.sin(Math.PI*(h-5.5)/13)),dusk=Math.max(0,1-Math.abs(h-17.7)/2.6);
@@ -677,7 +670,7 @@ export function createWorld(renderer,{quality='balanced'}={}) {
       sun.position.set(-2+day*2,8+4*day,-3+day*2);fill.color.setHex(lamp?0xffdba6:0xe5edde);fill.intensity=lamp?.87:.55;
       sky.setHex(0x283f44).lerp(new THREE.Color(0x708584),day*.51);Object.assign(state,{hour:h,lamp,asleep,kind});return {shadowDirty:true};
     },
-    dispose(){if(disposed)return;disposed=true;release();wallGhost.dispose();root.removeFromParent();ambient.removeFromParent();sun.removeFromParent();sun.target.removeFromParent();fill.removeFromParent();}
+    dispose(){if(disposed)return;disposed=true;release();root.removeFromParent();ambient.removeFromParent();sun.removeFromParent();sun.target.removeFromParent();fill.removeFromParent();}
   };
 }
 

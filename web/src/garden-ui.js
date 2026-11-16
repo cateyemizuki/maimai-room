@@ -1,5 +1,5 @@
 // Derived from feiyu-room-template 201a4ec (MIT).
-import { CROPS as DEFAULT_CROPS, GARDEN_RULES as DEFAULT_RULES } from './garden-state.js';
+import { CROPS as DEFAULT_CROPS, GARDEN_RULES as DEFAULT_RULES } from './garden-catalog.js';
 const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
 const count = (v) => Math.max(0, Math.floor(Number(v) || 0));
 const duration = (ms) => {
