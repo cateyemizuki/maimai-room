@@ -379,7 +379,7 @@ function bindCanvas(){
       const scale=2*camera.position.distanceTo(view.target)*Math.tan(camera.fov*Math.PI/360)/Math.max(1,canvas.clientHeight);
       const right=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,0);right.y=0;right.normalize();
       const forward=new THREE.Vector3(-right.z,0,right.x);
-      view.target.addScaledVector(right,-dx*scale).addScaledVector(forward,dy*scale);
+      view.target.addScaledVector(right,-dx*scale).addScaledVector(forward,-dy*scale);
       view.target.x=clamp(view.target.x,-12,24);view.target.z=clamp(view.target.z,-18,18);view.full=false;
     }else if(drag.moved&&cameraMode==='eyes'){
       eyeView.yaw-=dx*.004;eyeView.pitch=clamp(eyeView.pitch-dy*.003,-.9,.9);
