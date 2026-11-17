@@ -16,3 +16,15 @@ node_modules/
 .pytest_cache/
 /tests/host_validation.json
 /web/validation/
+
+# Local publishing guidance and submission drafts
+/UPLOAD_AGENT.md
+/ISSUE_SUBMISSION.md
+
+# Local tests and installation receipts
+/tests/
+/web/tests/
+/.maibot-release.json
+/.room-host-release.json
+/.update_backups/
+/config_back/

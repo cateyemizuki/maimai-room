@@ -17,7 +17,6 @@ function turf(b) {
     }
   }
   lane(-.64,1.42,.69,10.46,false);lane(.72,-3.76,.60,6.59,false);
-  lane(6.05,-.14,14.2,.28,true);
   lane(6.28,-.88,10.50,.61,true);lane(5.52,-3.61,12.02,.66,true);lane(6.34,-6.36,10.68,.60,true);
   for(const x of [3.36,6.05,8.76,11.48])for(const z of [-2.22,-4.96])lane(x,z,.41,1.98,false);
   // Small low grass groups live at the margins of the paths.

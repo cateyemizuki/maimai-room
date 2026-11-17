@@ -186,15 +186,20 @@ function predictedCharacter(){
   const c=state?.character;
   if(!c)return {position:[6.3,1.5],pose:'stand',elevation:0,facing:180,walking:false,expression:'neutral'};
   let pos=[Number(c.position.x),Number(c.position.z)],facing=Number(c.facing)||0;
+  let walking=!!c.walking;
   const path=Array.isArray(c.path)?c.path:[];
   if(c.walking&&online){
     let distance=Math.min(2.4,Math.max(0,(performance.now()-receivedAt)/1000))*(Number(state.movementSpeed)||1.15);
+    let pending=path.length;
     for(const point of path){
-      if(!Array.isArray(point)||!Number.isFinite(point[0])||!Number.isFinite(point[1]))break;
+      if(!Array.isArray(point)||!Number.isFinite(point[0])||!Number.isFinite(point[1])){walking=false;break;}
       const d=Math.hypot(point[0]-pos[0],point[1]-pos[1]);
       if(d>.0001)facing=Math.atan2(point[0]-pos[0],-(point[1]-pos[1]))*180/Math.PI;
-      if(d<=distance){pos=point.slice();distance-=d;}else{pos=[pos[0]+(point[0]-pos[0])*distance/d,pos[1]+(point[1]-pos[1])*distance/d];break;}
+      if(d<=distance){pos=point.slice();distance-=d;pending--;}else{pos=[pos[0]+(point[0]-pos[0])*distance/d,pos[1]+(point[1]-pos[1])*distance/d];break;}
     }
+    // Stop the visible walk when prediction reaches the final waypoint; the
+    // authoritative arrival state can arrive in the next polling response.
+    walking=walking&&pending>0;
   }
   if(c.walking&&motionOffset.lengthSq()>1e-10){
     const blend=Math.exp(-Math.max(0,performance.now()-motionCorrectedAt)/180);
@@ -206,7 +211,7 @@ function predictedCharacter(){
   if(expression==='neutral'&&mood?.available){const label=String(mood.label||'');if(/开心|高兴|愉快|happy/i.test(label))expression='happy';else if(/低落|伤心|sad/i.test(label))expression='sad';else if(/生气|愤怒|angry/i.test(label))expression='angry';else if(/放松|平静|relax/i.test(label))expression='relaxed';}
   const serverNow=(Number(state.serverTime)||Date.now())+performance.now()-receivedAt;
   const gesture=c.gesture?.name&&Number(c.gesture.expiresAt)>serverNow?{...c.gesture,elapsed:Math.max(0,(serverNow-Number(c.gesture.startedAt))/1000)}:null;
-  return {position:pos,pose:c.pose||'stand',elevation:Number(c.elevation)||0,facing,walking:!!c.walking,expression,spot:c.target?.key||'',room:c.room,gesture,gardenWork:c.gardenWork};
+  return {position:pos,pose:c.pose||'stand',elevation:Number(c.elevation)||0,facing,walking,expression,spot:c.target?.key||'',room:c.room,gesture,gardenWork:c.gardenWork};
 }
 
 function setCamera(mode,room){

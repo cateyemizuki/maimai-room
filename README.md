@@ -1,121 +1,113 @@
 # 麦麦的小屋
 
-<img src="room-logo.webp" alt="麦麦的小屋" width="120">
+<img src="room-logo.webp" alt="麦麦的小屋" width="112">
 
-MaiBot SDK 自定义 3D 房间插件。角色、家具互动、日程、园艺和 QQ 指令共用服务端状态，房间聊天使用独立的原生宿主聊天流。
+在 MaiBot 的网页房间里陪麦麦待一会儿：指引她走动、坐下休息、切换表情，照料菜园、看视频，或打开专属聊天。网页操作、QQ 指令和其他插件接入共用同一份房间状态。
 
-适配 MaiBot 1.3.19 及以上、SDK 2.20.0 及以上、自定义 WebUI 协议 v2。插件 ID 为 `cateye.maimai_room`。
+兼容范围：MaiBot **1.3.19–1.3.99**、MaiBot SDK **2.20.0–2.99.99**，使用自定义 WebUI v2。插件 ID 为 `cateye.maimai_room`。
 
-## 界面预览
+## 能做什么
 
-房间与菜园界面。
+- **房间互动**：走动、坐下、睡觉、起床、表情和摸头等互动；提供自由、跟随和麦麦第一人称视角。
+- **菜园**：八块田、十二种作物，支持播种、浇水、施肥、采收、买种子和自主照料。
+- **专属聊天**：在房间里与 MaiBot 对话，使用独立的宿主聊天流，对话可在宿主聊天记录中查看。
+- **电视**：播放选择的照片或视频，也可接收其他插件指定的媒体直链；支持画面保存和主动触发的视觉点评。
+- **插件联动**：其他插件可以推送日程、情绪和动作，控制媒体播放，订阅用户互动信号。未接入日程时，麦麦按固定作息活动。
 
 ![房间与菜园](docs/garden-preview.png)
 
-![闭眼微笑与阳台](docs/happy-preview.png)
+![麦麦与阳台](docs/happy-preview.png)
 
 ## 安装
 
-安装包见 [GitHub Releases](https://github.com/cateyemizuki/maimai-room/releases)，接入文档见 [API.md](API.md)。
+1. 从 [Releases](https://github.com/cateyemizuki/maimai-room/releases) 下载 `MaiSaka-Room-vX.Y.Z.zip`，在 MaiBot 插件管理中选择 ZIP 安装；也可解压到 `plugins/maimai_room`，确保该目录直接包含 `_manifest.json` 和 `plugin.py`。
+2. 重启 MaiBot，在插件管理中启用「麦麦的小屋」。依赖 `Pillow >= 10.0.0` 已在插件清单中声明。
+3. 从宿主侧栏打开「麦麦的小屋」。页面路径为 `/extensions/cateye.maimai_room/room`，升级后刷新已经打开的房间页。
 
-1. 将安装包解压到 MaiBot 的 `plugins/maimai_room`，确认该目录直接包含 `_manifest.json`。
-2. 使用宿主插件管理启用「麦麦的小屋」。
-3. 从宿主侧栏进入自定义页面，路径为 `/extensions/cateye.maimai_room/room`。
-4. 升级后刷新已经打开的页面，使它读取新的控件与保活设置。
+前端和角色资源随插件提供，运行时无需另外启动网页服务。
 
-运行时由 MaiBot 提供 SDK，清单声明 Pillow 依赖。WebUI 自带 Three.js 和运行资源，前端构建使用锁定版本的 esbuild。安装包需要保留 `web/index.html`、`web/runtime/`、`web/assets/` 和 `room-logo.webp`。
+## 房间操作
 
-## 操作
-
-| 输入 | 效果 |
+| 操作 | 效果 |
 | --- | --- |
-| 左键拖动 | 围绕当前关注点旋转 |
-| 中键拖动 | 在水平面平移，进入自由视角 |
+| 左键拖动 | 旋转视角 |
+| 中键拖动 | 平移视角，进入自由模式 |
 | 双击左键 | 指引麦麦走到可达的地面位置 |
-| 双击中键 | 尝试选中沙发等交互物，再选择走过去或使用 |
-| 单击实际田块 | 打开菜园并选中该田块 |
-| 滚轮、双指 | 缩放，第一人称中调节视野 |
+| 双击中键 | 选中沙发等家具，再选择走过去或使用 |
+| 单击田块 | 打开菜园并选中该块田 |
+| 单击麦麦 | 摸摸头 |
+| 滚轮、双指 | 缩放；第一人称中调节视野 |
 | Esc | 收起面板 |
 
-镜头提供「自由」「看麦麦」「麦麦视角」。麦麦视角跟随实际头部位置和朝向，支持左拖转头。家具和田块通过场景选取。
+「生活面板」中可以切换动作、表情和模型精度，也可打开电视与聊天；底部工具栏切换视角和画质。麦麦视角跟随头部位置，左键拖动可以转头。
 
-房屋、菜园和屋外小径共用一块连续地基，木地板、地砖和步道铺在其上。真正挡住麦麦的墙会整墙渐变透明，透明度随遮挡程度调整，其他墙保持不透明。外部视角隐藏顶棚，第一人称显示室内顶棚。
+挡住麦麦的墙会整墙渐变透明；外部视角隐藏顶棚，第一人称显示室内顶棚。房屋、菜园和小径共用连续地基，房屋与菜园的连接处保留草坪。
 
-角色默认使用标准模型，可以按需切换精细模型。开心表情通过现有形态键组合呈现闭眼与弧形微笑。
+## 权限和常用设置
 
-## 权限与工具
+在宿主插件配置页调整设置。网页操作、QQ 指令和 bot 工具分别控制权限：
 
-`access.allowed_users` 非空时使用本插件的 QQ 操作者名单。名单为空且 `inherit_host_operators=true` 时，经 SDK 读取宿主 `plugin.permission` 中明确配置的 QQ 管理员。`allowed_groups` 可进一步限定群，`public_status` 默认关闭。
+- **网页**：默认允许已登录 MaiBot WebUI 的用户操作，可用 `access.webui_controls` 关闭。
+- **QQ 指令**：使用 `access.allowed_users` 操作者名单；名单为空时，默认继承宿主中明确配置的 QQ 管理员。`access.allowed_groups` 可进一步限制群聊。非操作者默认不能查询状态。
+- **bot 状态调节工具**：默认开启，私聊和群聊均为空白名单，填入允许的会话后才能使用。其他插件接管行为时，工具自动停用；`tools.force_enabled` 可在接管期间继续开放工具，名单限制仍生效。
 
-bot 状态工具默认开启，群聊和私聊均使用空白名单。填入会话身份后才可调用。
+例如，只让指定 QQ 私聊和群聊使用状态调节工具：
 
 ```toml
 [tools]
-enabled = true
-force_enabled = false
 private_mode = "whitelist"
-private_users = []
+private_users = ["qq:<你的QQ号>"]
 group_mode = "whitelist"
-groups = []
+groups = ["<允许的群号>"]
 ```
 
-QQ 私聊可填纯号码或 `qq:号码`，房间专属聊天流的身份为 `maimai_room:room_owner`。两类名单可以分别使用 `blacklist` 模式。
+两类名单也可分别切换为 `blacklist`。空白名单不放行会话，空黑名单放行全部对应会话。房间专属聊天流的工具身份为 `maimai_room:room_owner`，需要时将它加入私聊名单。
 
-第三方接管期间自动关闭状态工具，`force_enabled=true` 可继续开放工具，会话名单仍然生效。WebUI 控制由 `access.webui_controls` 配置。
+| 设置 | 默认值 | 用途 |
+| --- | --- | --- |
+| `behaviour.automatic` | `true` | 跟随已接入的日程；未接入时使用固定作息 |
+| `behaviour.manual_hold_seconds` | `900` | 手动动作保持时长，单位秒 |
+| `performance.render_grace_seconds` | `600` | 页面隐藏后保留场景资源的时长，单位秒 |
+| `performance.desktop_fps` | `60` | 标准画质目标帧率；省电档为 24 |
+| `chat.enabled` | `true` | 启用房间专属聊天 |
+| `tv.review_enabled` | `true` | 允许将主动选择的电视画面交给宿主视觉模型点评，可能产生调用费用 |
+
+完整默认配置见 [config.example.toml](config.example.toml)。固定作息采用上海时区，07:00 起床、22:00 就寝。
+
+页面首次进入时才加载场景；隐藏后暂停渲染和轮询，默认保留资源 10 分钟。保活只对仍存在的页面实例生效，宿主切换侧栏销毁页面时会立即释放资源。
 
 ## QQ 指令
 
-中文根 `/房间` 与英文根 `/room` 通用。
+`/房间` 与 `/room` 通用，发送者须满足上面的 QQ 操作者权限。
 
-| 指令 | 功能 |
+| 示例 | 功能 |
 | --- | --- |
-| `/room 状态` | 当前动作、位置和来源 |
-| `/room 走 阳台` | 按房间通道走过去 |
+| `/room 状态` | 查看位置、动作和来源 |
+| `/room 走 阳台` | 走到阳台 |
 | `/room 坐 沙发` | 走到沙发并坐下 |
 | `/room 睡`、`/room 唤醒` | 就寝、起床 |
-| `/room 心情 开心` | 调整临时表情 |
-| `/room 自动` | 解除手动姿态覆盖 |
-| `/room 菜园 状态` | 查看园艺情况 |
+| `/room 心情 开心` | 切换临时表情 |
+| `/room 自动` | 解除手动动作保持，恢复自动活动 |
+| `/room 菜园 状态` | 查看菜园 |
+| `/room 菜园 播种 5 胡萝卜` | 在第 5 块田播种 |
+| `/room 菜园 浇水 5` | 安排照料第 5 块田 |
 
-园艺还支持翻土、播种、浇水、施肥、采收、买种子和自主照料。畦号为 1–8，接口内部索引为 0–7。排队成功表示安排已接受，麦麦到现场并工作后才结算物资。
+田块编号为 1–8。园艺动作排队成功后，麦麦会走到田边工作，完成后才结算物资。
 
-## 第三方接入
+## 聊天、电视与数据
 
-详细的鉴权、全部公开 API、参数、回执、错误处理、幂等及示例见 [独立 API 文档](API.md)，快速接线说明见 [INTEGRATION.md](INTEGRATION.md)。
+房间聊天使用 MaiBot 已有的模型配置，发送消息后由宿主处理。聊天镜像与房间、菜园存档位于本插件的数据目录，迁移时一并备份。
 
-- 日程提供方通过 `room_control` 接管，并主动推送当前活动或动作。
-- 没有第三方日程时使用上海时区固定作息，07:00 起床、22:00 就寝。
-- 互动信号支持即时回调与按游标补读，覆盖点击、镜头手势、房间与园艺动作及聊天提交。
-- 视频提供方可指定 HTTP(S) 音视频直链，并控制暂停、继续、跳转和音量。
-- 房间专属聊天平台为 `maimai_room`，独立流和页面镜像支持后续续看。
+选择照片或视频后，媒体先在当前页面播放；保存单帧和视觉点评分别由按钮触发，不会自动截取或发送。在线媒体需提供可直接播放的 HTTP(S) 音视频地址，普通播放器网页、HLS/DASH 清单和 DRM 播放器不在支持范围内。
 
-## 资源与配置
+如果无法操作，先检查插件是否启用及相应权限；QQ 指令权限和 bot 工具会话名单需要分别设置。麦麦停留在手动动作时，可点「跟随日程」或发送 `/room 自动`。
 
-```toml
-[performance]
-render_grace_seconds = 600
-desktop_fps = 60
-```
+## 其他插件接入
 
-标准画质默认 60 FPS，省电档为 24。页面隐藏后默认保留场景资源 10 分钟，期限内返回可复用，到期释放 WebGL 上下文。首次进入前按需加载。宿主侧栏切换会卸载 iframe，跨路由保留需要宿主页面支持。
-
-标准模型采用无损 gzip 传输，按宿主预算分成 9 块。两档原始 GLB 及对应压缩文件随包保存。浏览器私有资源通道、单帧保存和用户主动触发的视觉点评见 API 文档。
-
-宿主配置页提供中文分组、字段名称和黑白名单选项，配置键名保持稳定。配置模板为 `config.example.toml`。插件存档包含房间、园艺、互动游标及回调管理回执，聊天镜像为专属数据目录下的 `room_chat.json`。备份或迁移时使用宿主插件数据目录。
-
-## 开发验证
-
-前端在 `web/` 中执行 `npm ci`、`npm run build` 和 `npm test`，分别安装构建依赖、生成页面和检查场景规则。宿主 SDK 环境下运行下列回归。
-
-```text
-python -m unittest discover -s tests -p "test_*.py"
-python tests/validate_host.py --host-src <MaiBot源码目录> --report <报告路径>
-```
-
-测试覆盖权限、日程接管、寻路、快照投影、事件、专属聊天回执、配置界面和媒体。
+日程、情绪、行为接管、媒体控制和互动订阅的示例见 [接入指南](INTEGRATION.md)，全部接口、参数和回执见 [API 文档](API.md)。这些接口通过 MaiBot SDK 调用，无需另开服务端口。
 
 ## 来源与许可
 
-源码采用 MIT，第三方许可保存在 `web/licenses/` 和 `web/THIRD_PARTY_NOTICES.md`。房间规则与导航源自 [feiyu-room-template](https://github.com/sh2234113/feiyu-room-template)，固定参考提交为 `201a4ecad48e7e77cfdd6422fb8f55a77a7b9f5f`，场景采用重新编写的程序化几何。上游作者为 sh2234113；完整版权声明见 [原 MIT 许可](web/licenses/LICENSE)。
+插件代码采用 [MIT](LICENSE)。房间布局、导航和菜园规则参考 [sh2234113 / feiyu-room-template](https://github.com/sh2234113/feiyu-room-template)，保留原作者与贡献者的 [MIT 许可](web/licenses/LICENSE) 和 [灵感来源](web/licenses/INSPIRATION.md)。Three.js 等依赖说明见 [第三方许可](web/THIRD_PARTY_NOTICES.md)。
 
-角色形象参考 [MaiBot 官方角色设定](https://maibot.chat/about/)，运行模型为定制制作，Logo 为房屋与橙子图。角色及图像素材不因代码采用 MIT 而重新授权。
+麦麦形象参考 [MaiBot 官方角色设定](https://maibot.chat/about/)。角色模型、立绘和 Logo 等图像素材不因插件代码采用 MIT 而重新授权。
