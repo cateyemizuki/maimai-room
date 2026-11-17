@@ -4,7 +4,7 @@ import { RoomActor } from './actor.js';
 import { mountRoomMedia } from './media.js';
 import { mountRoomChat } from './chat.js';
 import { mountGarden } from './garden-client.js';
-import { FollowCameraGuard } from './follow-camera.js';
+import { FollowCameraGuard, eyeCameraOrientation } from './follow-camera.js';
 import { RoomVisibility } from './room-visibility.js';
 import { RoomMotion } from './room-motion.js';
 import roomLogo from '../../room-logo.webp';
@@ -255,14 +255,13 @@ function characterSightTargets(char){
 function updateCamera(dt,char){
   const aspect=canvas.clientWidth/Math.max(1,canvas.clientHeight);
   if(cameraMode==='eyes'){
-    eyeDirection.set(Math.sin(eyeView.yaw)*Math.cos(eyeView.pitch),Math.sin(eyeView.pitch),Math.cos(eyeView.yaw)*Math.cos(eyeView.pitch));
-    if(actor.eyePose(desiredPos,eyeOrientation)){
-      eyeDirection.applyQuaternion(eyeOrientation);
-    }else{
+    if(!actor.eyePose(desiredPos,eyeOrientation)){
       const yaw=Math.PI-char.facing*Math.PI/180;
       desiredPos.set(char.position[0]+.215*Math.sin(yaw),char.elevation+(char.pose==='lie'?.45:.95),char.position[1]+.215*Math.cos(yaw));
-      eyeOrientation.setFromAxisAngle(camera.up,yaw);eyeDirection.applyQuaternion(eyeOrientation);
+      eyeOrientation.setFromAxisAngle(camera.up,yaw);
     }
+    eyeCameraOrientation(eyeOrientation,eyeView.yaw,eyeView.pitch,camera.quaternion);
+    eyeDirection.set(0,0,-1).applyQuaternion(camera.quaternion);
     desiredLook.copy(desiredPos).addScaledVector(eyeDirection,4);
     camera.position.copy(desiredPos);look.copy(desiredLook);
   }else{
@@ -275,8 +274,8 @@ function updateCamera(dt,char){
     if(cameraMode==='follow')followGuard?.resolve({focus:view.target,az:view.az,elev:view.elev,radius,targets:characterSightTargets(char),dt,manual:!!drag},desiredPos);
     desiredLook.copy(view.target);
     camera.position.lerp(desiredPos,1-Math.exp(-dt*5.5));look.lerp(desiredLook,1-Math.exp(-dt*6));
+    camera.lookAt(look);
   }
-  camera.lookAt(look);
   if(cameraMode==='follow'){followGuard?.protectTransition(camera.position,followTargets,desiredPos);camera.lookAt(look);}
   if(world.scene.fog){world.scene.fog.near=Math.max(38,camera.position.distanceTo(desiredLook)+12);world.scene.fog.far=world.scene.fog.near+80;}
   if(roomVisibility.update(camera.position,characterSightTargets(char),char,{dt,firstPerson:cameraMode==='eyes'}))renderer.shadowMap.needsUpdate=true;
@@ -420,6 +419,7 @@ function bindCanvas(){
           cast(event);
           if(cameraMode==='eyes'||!actor.group.visible)return;
           const subjects=actor.mode==='2d'?(actor.spritePlane.visible?[actor.spritePlane]:[]):actor.meshes.filter(mesh=>mesh.visible);
+          for(const mesh of subjects)if(mesh.isSkinnedMesh){mesh.computeBoundingSphere();if(mesh.boundingBox)mesh.computeBoundingBox();}
           const hit=raycaster.intersectObjects(subjects,false)[0];
           if(hit&&hit.distance<=blockingWallDistance(raycaster)+.04){emitInteraction('character.pet');void interact('pet');}
         },260);

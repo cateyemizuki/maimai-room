@@ -101,6 +101,10 @@ export class RoomActor {
       if (o.isBone && /(^hips?$|pelvis|mixamorig.?hips)/i.test(o.name)) this.hips ||= o;
       if (!o.isMesh) return;
       this.meshes.push(o);o.castShadow=false;o.receiveShadow=true;
+      // Three caches a SkinnedMesh sphere on its first visible pose. Sleep,
+      // bowing and gestures move the actual head beyond that cached sphere.
+      // This single avatar has only three draws and must remain visible nearby.
+      if(o.isSkinnedMesh)o.frustumCulled=false;
       const materials=Array.isArray(o.material)?o.material:[o.material];
       for(const m of materials){if(m) m.envMapIntensity=.75;}
       if(o.morphTargetDictionary && o.morphTargetInfluences) this.morphs.push(o);

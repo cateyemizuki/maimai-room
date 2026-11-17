@@ -1,5 +1,16 @@
 import * as THREE from '../upstream/vendor/three.module.js';
 
+const eyeTurn=new THREE.Quaternion();
+const eyeAngles=new THREE.Euler(0,0,0,'YXZ');
+const cameraForward=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),Math.PI);
+
+// Preserve the complete head-local frame through an upward-facing sleep pose.
+// A world-up lookAt would flip the screen axes when the gaze crosses vertical.
+export function eyeCameraOrientation(head,yaw,pitch,out){
+  eyeAngles.set(-pitch,yaw,0,'YXZ');
+  return out.copy(head).multiply(eyeTurn.setFromEuler(eyeAngles)).multiply(cameraForward).normalize();
+}
+
 // Reuse the scene's furniture bounds. Walls use
 // character-based transparency. No triangle raycasts run in the frame loop.
 
