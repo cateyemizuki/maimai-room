@@ -266,7 +266,9 @@ body.garden-open .details,body.garden-open .object-card{display:none!important}
 
 body.garden-open .gesture-hint{display:none}
 @media(min-width:901px){body.garden-open .bottom{left:calc((100% - clamp(350px,24vw,440px))/2)}}
-@media(max-width:900px){body.garden-open .bottom{bottom:calc(48dvh + 20px);left:50%}}</style>
+@media(max-width:900px){body.garden-open .bottom{bottom:calc(48dvh + 20px);left:50%}}
+.loading-mark{overflow:hidden}.loading-mark img{display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit}
+</style>
 </head>
 <body>
 <button type="button" id="room-entry-status" hidden></button>
@@ -366,11 +368,11 @@ body.garden-open .gesture-hint{display:none}
     <span class="gesture-hint">左拖旋转 · 中拖平移 · 左双击指路 · 中双击选物</span>
   </footer>
 </main>
-<div id="loading" role="status"><div class="loading-inner"><div class="loading-mark">M</div><h2>把家里的灯点亮</h2><p id="loadText">正在准备房间</p><div class="loading-track"><i id="loadBar"></i></div></div></div>
+<div id="loading" role="status"><div class="loading-inner"><div class="loading-mark" aria-hidden="true"><img id="loadingLogo" alt="" width="58" height="58"></div><h2>把家里的灯点亮</h2><p id="loadText">正在准备房间</p><div class="loading-track"><i id="loadBar"></i></div></div></div>
 </template>
 <noscript>这个房间需要启用 JavaScript</noscript>
 <script>// Only this small loader and the inert UI template belong to the dashboard entry.
-const assets = {"plain":{"size":888099,"sha256":"937df6cf1e02e752359aef5c901520cb378527a76ee8b9e0e4127c2d9c944d90"},"gzip":{"size":343179,"sha256":"3b44aa467b66f7e0c22852eb1f9b46203a52a2daaa8e493710f402916b080261"}};
+const assets = {"plain":{"size":888120,"sha256":"28915d9db068e97e79f1a42649fcf19004570275284cad0913519c873d757ee0"},"gzip":{"size":343207,"sha256":"d4f6c9c6834ab8ddff45cfa1fbe1ebb1666e6981d708bf8ca816143d73975041"}};
 const template = document.getElementById('room-template');
 const status = document.getElementById('room-entry-status');
 let inView = false, pageActive = true, session = null, queue = Promise.resolve();

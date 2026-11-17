@@ -10,7 +10,7 @@ import roomLogo from '../../room-logo.webp';
 function mountRoom({root,signal,request,onRelease,clientConfig={},resourceCache=new Map(),isVisible=()=>!document.hidden}){
 const nodes=new Map(Array.from(root.querySelectorAll('[id]'),node=>[node.id,node]));
 const $=id=>nodes.get(id);
-if($('roomLogo'))$('roomLogo').src=roomLogo;
+for(const id of ['roomLogo','loadingLogo'])if($(id))$(id).src=roomLogo;
 const timers=new Set();
 function setTimeout(callback,delay){
   if(signal.aborted)return 0;
