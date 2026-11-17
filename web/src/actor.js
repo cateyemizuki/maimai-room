@@ -2,6 +2,7 @@
 import * as THREE from '../upstream/vendor/three.module.js';
 import { GLTFLoader } from '../upstream/vendor/GLTFLoader.js';
 import spriteUrl from '../assets/maisaka-sprite.webp';
+import {InteractionRig,expressionWeights} from './actor-interactions.js';
 
 const HEIGHT = 1.42;
 const ALIASES = {
@@ -14,8 +15,6 @@ const ALIASES = {
 const findClip = (clips, type) => clips.find(c => ALIASES[type].includes(c.name.toLowerCase()))
   || clips.find(c => ALIASES[type].some(a => c.name.toLowerCase().includes(a)));
 
-const armAxis = new THREE.Vector3(1,0,0);
-const tiltAxis = new THREE.Vector3(0,0,1);
 function releaseModel(root) {
   const resources=new Set();
   root?.traverse(node=>{
@@ -53,9 +52,10 @@ export class RoomActor {
     this.pose = 'stand';
     this.yOffset = 0;
     this.position = new THREE.Vector2(6.3, 4.2);
+    this.presented=false;this.postureOffset=new THREE.Vector2();
     this.info = {};
     this.mode='3d';this.spriteReady=false;this.spriteMap=null;
-    this.bones={};this.overlays=[];this.deltaRotation=new THREE.Quaternion();this.hipPoint=new THREE.Vector3();
+    this.bones={};this.interactions=null;this.hipPoint=new THREE.Vector3();this.faceToken='';this.faceStartedAt=0;
     this.spritePlane=new THREE.Mesh(new THREE.PlaneGeometry(HEIGHT*2/3,HEIGHT),new THREE.MeshBasicMaterial({transparent:true,alphaTest:.03,side:THREE.DoubleSide,depthWrite:false}));
     this.spritePlane.position.y=HEIGHT/2;this.spritePlane.visible=false;this.spritePlane.name='maisaka-approved-illustration';this.group.add(this.spritePlane);
     this.dragGhost=this.spritePlane.clone();this.dragGhost.material=this.spritePlane.material.clone();this.dragGhost.material.opacity=.48;this.dragGhost.visible=false;this.dragGhost.name='drag-destination-preview';scene.add(this.dragGhost);
@@ -68,6 +68,7 @@ export class RoomActor {
     ctx.fillStyle=g;ctx.fillRect(0,0,128,128);
     this.shadow = new THREE.Mesh(new THREE.PlaneGeometry(.8,.58),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthWrite:false,opacity:.65}));
     this.shadow.rotation.x=-Math.PI/2;this.shadow.position.y=.015;scene.add(this.shadow);
+    this.interactions=new InteractionRig(scene,this);
   }
 
   async load(buffer,isCurrent=()=>true) {
@@ -102,7 +103,7 @@ export class RoomActor {
       for(const m of materials){if(m) m.envMapIntensity=.75;}
       if(o.morphTargetDictionary && o.morphTargetInfluences) this.morphs.push(o);
     });
-    this.overlays=['head','rightUpperArm'].filter(name=>this.bones[name]).map(name=>({bone:this.bones[name],base:new THREE.Quaternion(),applied:false}));
+    this.interactions=new InteractionRig(this.scene,this);
     for(const type of Object.keys(ALIASES)) {
       const clip=findClip(gltf.animations,type);
       if(clip){const action=this.mixer.clipAction(clip);action.setLoop(['stretch','bow'].includes(type)?THREE.LoopOnce:THREE.LoopRepeat,['stretch','bow'].includes(type)?1:Infinity);action.clampWhenFinished=['stretch','bow'].includes(type);this.actions[type]=action;}
@@ -117,7 +118,7 @@ export class RoomActor {
     const action=this.actions[type];
     if(this.active===type) return;
     const previous=this.actions[this.active];
-    if(action){action.reset().setEffectiveTimeScale(1).setEffectiveWeight(1).play();if(previous&&previous!==action)action.crossFadeFrom(previous,.22,true);}
+    if(action){action.reset().setEffectiveTimeScale(1).setEffectiveWeight(1).play();if(previous&&previous!==action)action.crossFadeFrom(previous,.22,false);}
     else if(previous) previous.fadeOut(.2);
     this.active=type;this.poseChangedAt=this.t;
   }
@@ -125,35 +126,27 @@ export class RoomActor {
   update(dt,camera,state,mode) {
     this.t+=dt;
     const {position=[6.3,4.2],pose='stand',walking=false,elevation=0,facing=0,expression='neutral',spot='',gesture=null}=state;
+    const changingPose=this.presented&&this.pose!==pose&&this.mode==='3d'&&this.hips;
+    const previousHip=changingPose?this.hips.getWorldPosition(new THREE.Vector3()):null;
     this.position.set(position[0],position[1]);
     this.pose=pose;this.expression=expression;
     const sleeping=pose==='lie'||pose==='sleep';
     const sitting=pose==='sit';
     const baseAnim=walking?'walk':sleeping?'sleep':sitting?'sit':'idle';
-    const gestureClip=!walking&&!sleeping&&!sitting&&gesture&&this.actions[gesture.name]?gesture.name:null;
+    const gestureClip=this.mode==='3d'&&!walking&&!sleeping&&!sitting&&gesture&&this.actions[gesture.name]?gesture.name:null;
     const anim=gestureClip||baseAnim;
-    if(gestureClip&&this.gestureToken!==gesture.startedAt){if(this.active===anim)this.actions[anim].reset().play();this.gestureToken=gesture.startedAt;}
+    const changed=this.active!==anim,restart=gestureClip&&(this.gestureToken!==gesture.startedAt||changed);
     this.setAnimation(anim);
-    // Three's mixer can skip unchanged tracks. Restore the exact pre-overlay
-    // orientation before it samples the next pose, including gesture release.
-    for(const layer of this.overlays)if(layer.applied){layer.bone.quaternion.copy(layer.base);layer.applied=false;}
-    this.mixer?.update(dt);
-    if(gesture&&!gestureClip&&!sleeping&&!walking){
-      const age=Number(gesture.elapsed)||0;
-      const reach=['feed','water','play'].includes(gesture.name);
-      const remaining=Number.isFinite(gesture.expiresAt)&&Number.isFinite(gesture.startedAt)?(gesture.expiresAt-gesture.startedAt)/1000-age:1;
-      const envelope=Math.min(1,Math.max(0,age/.16),Math.max(0,remaining/.22));
-      for(const layer of this.overlays){
-        const head=layer.bone===this.bones.head;
-        let angle=0,axis=head?tiltAxis:armAxis;
-        if(head&&(reach||gesture.name==='pet'||gesture.name==='poke'))angle=Math.sin(age*5)*.075;
-        else if(head&&gesture.name==='bow'){axis=armAxis;angle=Math.sin(Math.min(1,age/2)*Math.PI)*.20;}
-        else if(head&&gesture.name==='dance')angle=Math.sin(age*5)*.10;
-        else if(!head&&reach)angle=Math.sin(age*3)*.20;
-        else if(!head&&['dance','stretch'].includes(gesture.name))angle=Math.sin(age*2)*.14;
-        if(angle){layer.base.copy(layer.bone.quaternion);layer.bone.quaternion.multiply(this.deltaRotation.setFromAxisAngle(axis,angle*envelope));layer.applied=true;}
-      }
+    if(restart){
+      const action=this.actions[anim];if(!changed)action.reset().play();action.time=Math.min(Number(gesture.elapsed)||0,action.getClip().duration-.0001);
+      this.gestureToken=gesture.startedAt;
     }
+    if(walking&&this.actions.walk){
+      const rate=Number.isFinite(state.motionSpeed)?state.motionSpeed/(Number(state.walkSpeed)||1.15):1;
+      this.actions.walk.setEffectiveTimeScale(THREE.MathUtils.clamp(rate,0,2.2));
+    }
+    this.interactions?.restore();this.interactions?.clearSprite();
+    this.mixer?.update(dt);
     const clip=!!this.actions[anim]&&this.mode==='3d';
     // Engine facing: 0=north(-Z), 90=east(+X); glTF front is +Z.
     let yaw=Math.PI-facing*Math.PI/180;
@@ -190,48 +183,56 @@ export class RoomActor {
     } else if(sitting) baseY=Math.max(0,baseY-.28);
     else if(sleeping) baseY+=.34;
 
-    const bob=walking&&!clip?Math.abs(Math.sin(this.t*11))*.025:!clip?Math.sin(this.t*1.7)*.004:0;
+    const bob=walking&&!clip?(state.motionSpeed===0?0:Math.abs(Math.sin(this.t*11))*.025):!clip?Math.sin(this.t*1.7)*.004:0;
     this.yOffset+=(baseY-this.yOffset)*Math.min(1,dt*10);
     this.group.position.set(anchorX-hipOffsetX,this.yOffset+bob,anchorZ-hipOffsetZ+(sleeping && !clip ? .3 : 0));
     const rotX=clip?0:sleeping?-Math.PI/2:sitting?-.10:walking?-.08:0;
     this.group.rotation.x+=(rotX-this.group.rotation.x)*Math.min(1,dt*8);
     const scaleY=sitting && !clip ? .84 : 1;
     this.group.scale.y+=(scaleY-this.group.scale.y)*Math.min(1,dt*8);
+    if(previousHip){
+      this.group.updateWorldMatrix(true,true);
+      const next=this.hips.getWorldPosition(new THREE.Vector3());
+      this.postureOffset.set(previousHip.x-next.x,previousHip.z-next.z);
+    }else this.postureOffset.multiplyScalar(Math.exp(-dt*10));
+    this.group.position.x+=this.postureOffset.x;this.group.position.z+=this.postureOffset.y;
+    this.presented=true;
     this.shadow.position.set(position[0],sleeping?elevation+.15:sitting?elevation+.012:.015,position[1]);
     this.shadow.scale.set(sleeping?1.6:1,sleeping?2:1,1);
     this.shadow.visible=mode!=='eyes';this.group.visible=mode!=='eyes'||this.mode==='3d';
     for(const mesh of this.meshes)mesh.visible=mode!=='eyes'||!/head|expression/i.test(mesh.name);
-    this.normal.visible=this.mode==='3d';this.spritePlane.visible=this.mode==='2d';
-    this.updateExpression(dt,sleeping,expression,walking);
+    this.normal.visible=this.mode==='3d';this.spritePlane.visible=this.mode==='2d'&&this.spriteReady;
+    this.group.updateWorldMatrix(true,true);
+    this.interactions?.apply(gesture,{walking,sleeping,sitting,native:!!gestureClip});
+    const token=expression+':'+String(state.expressionAt||0);
+    if(token!==this.faceToken){this.faceToken=token;this.faceStartedAt=this.t;}
+    this.updateExpression(dt,sleeping,expression,walking?null:gesture);
   }
 
   ensureSprite(){if(this.spriteMap)return;this.spriteMap=new THREE.TextureLoader().load(spriteUrl,()=>{this.spriteReady=true;});this.spriteMap.colorSpace=THREE.SRGBColorSpace;for(const m of [this.spritePlane.material,this.dragGhost.material]){m.map=this.spriteMap;m.needsUpdate=true;}}
   setMode(mode){this.mode=mode==='2d'?'2d':'3d';if(this.mode==='2d')this.ensureSprite();this.normal.visible=this.mode==='3d';this.spritePlane.visible=this.mode==='2d';if(this.mode==='3d'){this.group.rotation.x=0;this.group.scale.y=1;this.sleepOffsetFor=null;this.poseChangedAt=this.t;}}
   previewDestination(point,camera){if(!point){this.dragGhost.visible=false;return;}this.ensureSprite();this.dragGhost.visible=true;this.dragGhost.position.set(point[0],HEIGHT/2+.04,point[1]);this.dragGhost.rotation.set(0,Math.atan2(camera.position.x-point[0],camera.position.z-point[1]),0);}
 
-  updateExpression(dt,sleeping,expression,walking) {
+  updateExpression(dt,sleeping,expression,gesture) {
     if(this.t>this.blinkAt){this.blinkStart=this.t;this.blinkAt=this.t+3.1+Math.random()*3;}
     const phase=(this.t-this.blinkStart)/.16;
-    const happy=!sleeping&&expression==='happy';
-    // The existing happy morph supplies about 62% eye closure. Its complete
-    // mouth is a smile arc, so retain it and close the remaining eye aperture.
-    const blink=sleeping||expression==='sleepy'?1:happy?.40:phase>=0&&phase<1?Math.sin(phase*Math.PI):0;
-    const weights={blink,blinkleft:blink,blinkright:blink,happy:happy?1:0,angry:!sleeping&&expression==='angry'?.85:0,sad:!sleeping&&expression==='sad'?.8:0,relaxed:!sleeping&&expression==='relaxed'?.75:0,surprised:!sleeping&&expression==='surprised'?.85:0,aa:0};
+    const blink=phase>=0&&phase<1?Math.sin(phase*Math.PI):0;
+    const weights=expressionWeights(expression,blink,{sleeping,faceAge:this.t-this.faceStartedAt,gesture});
     for(const mesh of this.morphs){
-      const hasCombinedBlink=Object.keys(mesh.morphTargetDictionary).some(n=>n.toLowerCase()==='blink');
       for(const [name,index]of Object.entries(mesh.morphTargetDictionary)){
         const key=name.toLowerCase().replace(/[_\s.-]/g,'');
         if(!(key in weights))continue;
-        const weight=hasCombinedBlink&&(key==='blinkleft'||key==='blinkright')?0:weights[key];
+        const weight=weights[key];
         const current=mesh.morphTargetInfluences[index]||0;
-        mesh.morphTargetInfluences[index]=current+(weight-current)*Math.min(1,dt*(key.startsWith('blink')?35:8));
+        mesh.morphTargetInfluences[index]=current+(weight-current)*Math.min(1,dt*(key.startsWith('blink')?35:['aa','ih','ou','ee','oh'].includes(key)?18:8));
       }
     }
   }
 
   disposeModel(){
+    this.interactions?.dispose();this.interactions=null;
     if(this.model){this.mixer?.stopAllAction();this.mixer?.uncacheRoot(this.model);this.model.removeFromParent();releaseModel(this.model);}
-    this.meshes=[];this.morphs=[];this.actions={};this.bones={};this.overlays=[];this.model=null;this.mixer=null;this.hips=null;this.ready=false;
+    this.meshes=[];this.morphs=[];this.actions={};this.bones={};this.model=null;this.mixer=null;this.hips=null;this.ready=false;
   }
   dispose(){
     this.disposeModel();

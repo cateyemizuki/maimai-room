@@ -47,10 +47,10 @@ export function mountGarden({world,renderer,camera,hostQuery,hostAction,onError=
     }finally{busy=false;}
   }
   async function homeAction(command){
-    if(busy)return;
+    if(busy)return {ok:false,message:'上一项安排还在保存，请稍等'};
     busy=true;
-    try{accept(await hostAction('interact',{command,request_id:globalThis.crypto?.randomUUID?.()||`garden-home-${Date.now()}`}));}
-    catch(error){onError(String(error?.message||error).slice(0,180));}
+    try{return accept(await hostAction('interact',{command,request_id:globalThis.crypto?.randomUUID?.()||`garden-home-${Date.now()}`}));}
+    catch(error){return {ok:false,message:String(error?.message||error).slice(0,180)};}
     finally{busy=false;}
   }
   async function refresh(){
@@ -82,7 +82,8 @@ export function mountGarden({world,renderer,camera,hostQuery,hostAction,onError=
   function updateCharacter(character,position,heading,grip){
     if(!character||!model||(!opened&&!shown))return;
     const task=view?.care?.task;
-    const work=character.gardenWork||(task?{...task.action,...task,type:task.type||task.action?.type}:null);
+    const reported=character.gardenWork;
+    const work=character.source==='garden'&&task?.phase==='working'&&reported?.phase==='working'&&reported.id===task.id?reported:null;
     const point=position||{x:character.position?.x??character.position?.[0],y:character.elevation||0,z:character.position?.z??character.position?.[1]};
     model.updateCharacter({gardenWork:work,walking:character.walking,asleep:character.pose==='lie',
       kind:work?'garden_'+work.type:''},point,heading===undefined?Math.PI-(Number(character.facing)||0)*Math.PI/180:heading,grip);

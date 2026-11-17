@@ -1,24 +1,17 @@
 import * as THREE from '../upstream/vendor/three.module.js';
 import {Woodshop,seeded,clover,basket,potted} from './room-world.js';
+import {pavingParts} from './garden-paths.js';
 
 const HALF=Math.PI/2,TAU=Math.PI*2;
 const OAK=0xb1845e, RIM=0xc6a17a, DARK=0x786345, SAGE=0x788d75, CREAM=0xeaddbb;
 export const GARDEN_PLOTS=Array.from({length:8},(_,id)=>({id,x:2+(id%4)*2.7,z:id<4?-2.2:-5,width:2.05,depth:1.65}));
 
 function turf(b) {
-  function lane(x,z,w,d,alongX) {
-    b.pad(x,.002,z,w,.024,d,0xb6b393,.046,.004,1);
-    const length=alongX?w:d,width=alongX?d:w;
-    const n=Math.max(1,Math.round(length/.63));const size=length/n;
-    for(let i=0;i<n;i++){
-      const offset=(i-(n-1)/2)*size;
-      const sw=alongX?size-.032:width-.041,sd=alongX?width-.041:size-.032;
-      b.pad(x+(alongX?offset:0),.020,z+(alongX?0:offset),sw,.021,sd,[0xd4cdb3,0xc8c6ab,0xd9d2b9,0xc9c4a9][(i+Math.round(length))%4],.055,0,1);
-    }
+  const paths=pavingParts();
+  for(const [x0,z0,x1,z1] of paths.bases)b.box((x0+x1)/2,.002,(z0+z1)/2,x1-x0,.024,z1-z0,0xb6b393);
+  for(const {bounds:[x0,z0,x1,z1],tone} of paths.tiles){
+    b.pad((x0+x1)/2,.020,(z0+z1)/2,x1-x0,.021,z1-z0,[0xd4cdb3,0xc8c6ab,0xd9d2b9,0xc9c4a9][tone],.055,0,1);
   }
-  lane(-.64,1.42,.69,10.46,false);lane(.72,-3.76,.60,6.59,false);
-  lane(6.28,-.88,10.50,.61,true);lane(5.52,-3.61,12.02,.66,true);lane(6.34,-6.36,10.68,.60,true);
-  for(const x of [3.36,6.05,8.76,11.48])for(const z of [-2.22,-4.96])lane(x,z,.41,1.98,false);
   // Small low grass groups live at the margins of the paths.
   for(let i=0;i<60;i++){
     const x=i%2===0?-.90+seeded(i)*.30:12.29+seeded(i)*.53,z=-.48-seeded(i+41)*6.79;
@@ -320,7 +313,7 @@ export function createGardenWorld(world,renderer,{quality='balanced'}={}) {
     },
     setSelected(id){const n=typeof id==='number'||(typeof id==='string'&&id.trim()!=='')?Number(id):-1,p=GARDEN_PLOTS[n];selected.visible=Boolean(p);if(p)selected.position.set(p.x,0,p.z);},
     updateCharacter({gardenWork,walking,asleep,kind}={},position,heading=0,grip=null){
-      const active=Boolean(gardenWork)&&!walking&&!asleep&&position&&position.z<-.15;
+      const active=gardenWork?.phase==='working'&&!walking&&!asleep&&position&&position.z<-.15;
       tools.root.visible=Boolean(active);if(!active){activity.action='';return;}
       const action=String(typeof gardenWork==='string'?gardenWork:gardenWork.action?.type||gardenWork.action?.kind||(typeof gardenWork.action==='string'?gardenWork.action:'')||gardenWork.kind||gardenWork.type||kind||'').toLowerCase();
       if(!/^(water|harvest|sow|plant|till|fertilize|clear)$/.test(action)){tools.root.visible=false;return;}

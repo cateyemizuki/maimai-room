@@ -40,10 +40,11 @@
       <button data-command="walk" data-target="balcony">去阳台</button><button data-command="auto">跟随日程</button>
     </div>
     <div class="section-heading small"><span>表情</span><span class="muted">临时房间表情</span></div>
-    <div class="expression-actions"><button data-command="mood" data-target="开心">开心</button><button data-command="mood" data-target="困">困了</button><button data-command="mood" data-target="恢复">自然</button></div>
+    <div class="expression-actions mood-actions"><button data-command="mood" data-target="开心">开心</button><button data-command="mood" data-target="困">困了</button><button data-command="mood" data-target="眨眼">眨单眼</button><button data-command="mood" data-target="惊喜">惊喜</button><button data-command="mood" data-target="惊讶">惊讶</button><button data-command="mood" data-target="委屈">委屈</button><button data-command="mood" data-target="低落">低落</button><button data-command="mood" data-target="生气">生气</button><button data-command="mood" data-target="放松">放松</button><button data-command="mood" data-target="恢复">自然</button></div>
     <div class="section-heading small"><span>角色精度</span><span id="modelQualityState" class="muted">标准模型</span></div>
     <div class="expression-actions"><button id="modelQuality">切换精细模型</button><button id="charMode">切换立绘</button></div>
-    <div class="section-heading small"><span>一起待一会儿</span><span class="muted">点一下互动</span></div>
+    <p id="actorModeHint" class="source-hint" hidden>立绘仅显示姿态反馈，完整动作与表情请切换 3D。</p>
+    <div class="section-heading small"><span>一起待一会儿</span><span id="interactionState" class="muted">点一下互动</span></div>
     <div class="actions interactions"><button data-command="pet">摸摸头</button><button data-command="poke">轻轻戳</button><button data-command="feed">给点吃的</button><button data-command="water">倒杯水</button><button data-command="play">陪她玩</button><button data-command="dance">跳个舞</button><button data-command="stretch">伸懒腰</button><button data-command="bow">行个礼</button></div>
     <p id="interactionError" class="source-hint" role="alert" hidden></p>
     <div class="expression-actions utility-actions"><button id="tvToggle">打开电视</button><button id="chatToggle">聊一会儿</button><button id="companionToggle">陪伴卡</button></div>

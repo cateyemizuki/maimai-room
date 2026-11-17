@@ -22,7 +22,7 @@ from .room_tv import NOTICE as TV_NOTICE, RoomTVBridge
 from .room_integration import BehaviourControl
 from .room_media import RoomMedia
 from .garden_care import control_garden, ensure_garden, garden_snapshot, parse_garden_command, tick_garden
-from .room_core import (ACTION_NAMES, COMMANDS, advance_auto, apply_action, clean, empty_state,
+from .room_core import (ACTION_NAMES, COMMANDS, advance_auto, apply_action, clean, display_route, empty_state,
                         load_state, save_state, snapshot, tick)
 
 ROOT_PATTERN = r"^/(?:room|房间)(?=\s|$)(?:\s+(?P<room_args>.*))?\s*$"
@@ -30,7 +30,7 @@ MODEL_ASSET = "maisaka.glb"
 MODEL_FILES = {"mobile": "maisaka.glb", "high": "maisaka-hi.glb"}
 CHUNK_SIZE = 196608
 HELP = ("房间指令：/room 状态；/room 站；/room 走 阳台；/room 坐 沙发；/room 睡；/room 唤醒；"
-        "/room 自动；/room 心情 开心|困|恢复；/room 灯 on|off；/room 摸头|喂食|倒水|陪玩|跳舞|伸懒腰|行礼。中文根 /房间 同样可用。"
+        "/room 自动；/room 心情 开心|困|生气|低落|放松|惊讶|眨眼|惊喜|委屈|恢复；/room 灯 on|off；/room 摸头|喂食|倒水|陪玩|跳舞|伸懒腰|行礼。中文根 /房间 同样可用。"
         "/room 菜园 状态|翻土 5|播种 5 胡萝卜|浇水 5|施肥 5|采收 1|买种子 番茄 2|自动 on|off。"
         "地点：沙发、床、书桌、阳台、厨房、餐桌、卫生间、菜园、门口。第三方可通过公开接口接管行为与日程。")
 
@@ -208,8 +208,9 @@ class MaiMaimaiRoomPlugin(MaiBotPlugin):
     async def _tick_loop(self) -> None:
         last_tick = time.monotonic()
         while True:
-            walking = self._state["character"]["walking"]
-            interval = (0.5 if time.monotonic() < self._viewer_until else 3.0) if walking else 5.0
+            character = self._state["character"]
+            active = character["walking"] or (character.get("gardenWork") or {}).get("phase") == "working"
+            interval = (0.5 if time.monotonic() < self._viewer_until else 3.0) if active else 5.0
             remaining = max(0.0, last_tick + interval - time.monotonic())
             try:
                 await asyncio.wait_for(self._activity_wakeup.wait(), timeout=remaining)
@@ -250,7 +251,7 @@ class MaiMaimaiRoomPlugin(MaiBotPlugin):
         result = snapshot(projected, self._life, self.config.plugin.character_name, now)
         result["movementSpeed"] = self.config.behaviour.walking_speed
         result["controlsEnabled"] = self.config.plugin.enabled and self.config.access.webui_controls
-        result["garden"] = garden_snapshot(self._state, now)
+        result["garden"] = garden_snapshot(projected, now)
         result["chat"] = {"enabled": result["controlsEnabled"] and self.config.chat.enabled,
                           "source": "maibot-room-chat", "notice": CHAT_NOTICE,
                           "sessionId": self._chat.session_id if self._chat else "",
@@ -406,11 +407,11 @@ class MaiMaimaiRoomPlugin(MaiBotPlugin):
             self.ctx.logger.warning("房间调节工具可见性将在下轮重试")
 
     @Tool("room_adjust_state", platforms=["qq", CHAT_PLATFORM], brief_description="调节你在房间中的动作、位置和表情",
-          detailed_description="根据当前对话调节房间中的自身状态。只在配置允许的私聊或群聊调用。支持站、走、坐、睡、唤醒、自动、心情、灯和基础互动。目标使用房间地点名或开心/困/恢复。",
+          detailed_description="根据当前对话调节房间中的自身状态。只在配置允许的私聊或群聊调用。支持站、走、坐、睡、唤醒、自动、心情、灯和基础互动。心情支持开心、困、生气、低落、放松、惊讶、眨眼、惊喜、委屈和恢复。基础互动需等待麦麦到达、醒来或完成当前动作。",
           parameters={"type": "object", "additionalProperties": False, "required": ["command"],
                       "properties": {
                           "command": {"type": "string", "maxLength": 24, "description": "动作，如 walk、sit、sleep、wake、mood、auto、dance"},
-                          "target": {"type": "string", "maxLength": 80, "description": "地点，如 sofa、bed、desk、balcony，或心情 开心/困/恢复"}}})
+                          "target": {"type": "string", "maxLength": 80, "description": "地点，如 sofa、bed、desk、balcony；或心情 开心/困/生气/低落/放松/惊讶/眨眼/惊喜/委屈/恢复"}}})
     async def room_adjust_state(self, command: str = "", target: str = "", **kwargs: Any) -> dict[str, Any]:
         platform = str(kwargs.get("platform", "")).lower()
         if not self._tool_available() or platform not in {"qq", CHAT_PLATFORM}:
@@ -494,6 +495,14 @@ class MaiMaimaiRoomPlugin(MaiBotPlugin):
         async with self._lock:
             self._viewer_until = time.monotonic() + 6
             return self._view()
+
+    @API("room_display_route", description="只读重建页面显示位置到当前角色的可行走路径", version="1")
+    async def room_display_route(self, x: float, z: float) -> dict[str, Any]:
+        if not isinstance(x, (int, float)) or not isinstance(z, (int, float)) or not math.isfinite(x) or not math.isfinite(z):
+            raise ValueError("显示位置须为有效坐标")
+        view = self._view()
+        position = view["character"]["position"]
+        return {"snapshot": view, "displayRoute": display_route([x, z], [position["x"], position["z"]])}
 
     async def _interact(self, command: str, target: str, request_id: str, source: str, *, control_token: str = "") -> dict[str, Any]:
         if not self.config.plugin.enabled:

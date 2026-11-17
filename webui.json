@@ -124,6 +124,14 @@
             }
           }
         },
+        "display_route": {
+          "api": "room_display_route",
+          "version": "1",
+          "parameters": {
+            "x": {"type": "number", "required": true, "minimum": -2, "maximum": 15},
+            "z": {"type": "number", "required": true, "minimum": -9, "maximum": 11}
+          }
+        },
         "client_config": {
           "api": "room_client_config",
           "version": "1"

@@ -17,7 +17,7 @@ import os
 import re
 import time
 
-from .room_navigation import find_route, ground_point_valid
+from .room_navigation import OBSTACLES, find_route, ground_point_valid
 
 DATA = json.loads(Path(__file__).with_name("layout.json").read_text(encoding="utf-8"))
 LAYOUT, NODES, EDGES = DATA["layout"], DATA["nodes"], DATA["edges"]
@@ -37,9 +37,13 @@ COMMANDS.update({"跳舞": "dance", "伸懒腰": "stretch", "行礼": "bow"})
 GESTURES = {"pet": (3, "摸了摸麦麦的头"), "poke": (2, "轻轻戳了麦麦一下"),
             "feed": (5, "递给麦麦一份点心"), "water": (5, "给麦麦倒了一杯水"),
             "play": (8, "陪麦麦玩了一会儿"), "wake": (3, "叫醒了麦麦"),
-            "dance": (8, "麦麦跳了一小段舞"), "stretch": (5, "麦麦伸了个懒腰"), "bow": (3, "麦麦轻轻行礼")}
+            "dance": (8, "麦麦跳了一小段舞"), "stretch": (5, "麦麦伸了个懒腰"), "bow": (3.3, "麦麦轻轻行礼")}
 EXPRESSIONS = {"开心": "happy", "高兴": "happy", "happy": "happy", "困": "sleepy", "困倦": "sleepy",
                "sleepy": "sleepy", "恢复": "neutral", "平静": "neutral", "neutral": "neutral", "reset": "neutral"}
+EXPRESSIONS.update({"生气": "angry", "angry": "angry", "低落": "sad", "难过": "sad", "sad": "sad",
+                    "放松": "relaxed", "relaxed": "relaxed", "惊讶": "surprised", "surprised": "surprised",
+                    "眨眼": "wink", "单眼": "wink", "wink": "wink", "惊喜": "delighted", "delighted": "delighted",
+                    "委屈": "pout", "pout": "pout"})
 ACTION_NAMES = {"stand": "站着", "walk": "走路", "sit": "坐着", "sleep": "睡觉", "wake": "醒着"}
 TZ = timezone(timedelta(hours=8))
 
@@ -54,7 +58,12 @@ def room_at(point: list[float]) -> str | None:
         x0, z0, x1, z1 = room["bounds"]
         if x0 <= point[0] <= x1 and z0 <= point[1] <= z1:
             candidates.append(((x1 - x0) * (z1 - z0), room["id"]))
-    return min(candidates)[1] if candidates else None
+    if candidates:
+        return min(candidates)[1]
+    # The entrance threshold connects the outdoor path to the foyer.
+    if -.21 <= point[0] <= .21 and 5.77 <= point[1] <= 6.76:
+        return "foyer"
+    return None
 
 
 def nearest(point: list[float], room: str | None = None) -> str:
@@ -85,12 +94,28 @@ def path_to(point: list[float], target: dict[str, Any], start_access: str = "") 
     return find_route(point, target, NODES, EDGES, LAYOUT["rooms"], start_access)
 
 
+def display_route(start: list[float], finish: list[float]) -> list[list[float]]:
+    """A read-only, walkable bridge for a client that missed route history."""
+    if room_at(start) is None or not all(math.isfinite(v) for v in start):
+        raise ValueError("显示位置不在房间范围内")
+    def occupied(point):
+        return next((name for name, rect in OBSTACLES if name in SPOTS and
+                     rect[0]-.035 < point[0] < rect[2]+.035 and rect[1]-.035 < point[1] < rect[3]+.035), "")
+    first, last = occupied(start), occupied(finish)
+    room = room_at(finish)
+    if room is None:
+        raise ValueError("服务端位置不在房间范围内")
+    target = dict(SPOTS[last], id=last) if last else {"id": "free:presentation", "access": nearest(finish, room), "room": room}
+    target["pos"] = list(finish)
+    return [list(start), *path_to(start, target, SPOTS[first]["access"] if first else "")]
+
+
 def empty_state(now: float | None = None) -> dict[str, Any]:
     now = time.time() if now is None else now
-    return {"schemaVersion": 1, "revision": 0, "updatedAt": int(now * 1000), "lastTick": now,
+    return {"schemaVersion": 1, "revision": 0, "updatedAt": int(now * 1000), "lastTick": now, "movementSeq": 0,
             "manualUntil": 0, "character": {"id": "maisaka", "name": "麦麦", "action": "stand", "pose": "stand",
             "position": {"x": 6.3, "z": 1.5}, "room": "living", "elevation": 0, "facing": 0,
-            "walking": False, "path": [], "target": None, "source": "room-routine", "poseUntil": 0,
+            "walking": False, "path": [], "target": None, "motion": None, "source": "room-routine", "poseUntil": 0,
             "expression": {"name": "neutral", "source": "default", "expiresAt": 0}, "gesture": None},
             "room": {"lamp": True, "counts": {}, "events": []}, "processed": {}}
 
@@ -104,6 +129,8 @@ def load_state(path: Path) -> dict[str, Any]:
     # Validate critical persisted fields before they can reach arithmetic/JSON APIs.
     char = raw["character"]
     char.setdefault("gesture", None)
+    char.setdefault("motion", None)
+    raw.setdefault("movementSeq", 0)
     pos = [float(char["position"][axis]) for axis in ("x", "z")]
     if not all(math.isfinite(v) for v in pos) or room_at(pos) is None:
         raise ValueError("房间存档位置无效；原文件保留")
@@ -168,6 +195,24 @@ def tick(state: dict[str, Any], now: float, speed: float = 1.15) -> bool:
     return changed
 
 
+def record_motion(state: dict[str, Any], points: list[list[float]], now: float) -> dict[str, Any]:
+    char = state["character"]
+    previous = char.get("motion") or {}
+    history = list(previous.get("history", []))
+    if previous.get("id") and previous.get("route"):
+        old_route = previous["route"]
+        total = sum(math.dist(a, b) for a, b in zip(old_route, old_route[1:]))
+        remaining = [[char["position"]["x"], char["position"]["z"]], *char["path"]]
+        rest = sum(math.dist(a, b) for a, b in zip(remaining, remaining[1:]))
+        history.append({"id": previous["id"], "route": old_route, "endArc": max(0, total - rest)})
+    route = []
+    for point in points:
+        if not route or math.dist(route[-1], point) > 1e-7:
+            route.append(list(point))
+    state["movementSeq"] = int(state.get("movementSeq", 0)) + 1
+    return {"id": f"{int(now * 1000000)}-{state['movementSeq']}", "route": route, "history": history[-2:]}
+
+
 def travel(state: dict[str, Any], target: dict[str, Any], action: str, source: str, now: float) -> None:
     char = state["character"]
     target = deepcopy(target)
@@ -182,8 +227,9 @@ def travel(state: dict[str, Any], target: dict[str, Any], action: str, source: s
         target["pos"] = list(NODES[target["access"]])
         target["pose"] = "stand"
     route = path_to(point, target, start_access)
+    motion = record_motion(state, [point, *route], now)
     state["lastTick"] = now
-    char.update(target=target, path=route, walking=True, pose="stand", elevation=0,
+    char.update(target=target, path=route, motion=motion, walking=True, pose="stand", elevation=0,
                 action="walk", source=source)
     tick(state, now)
 
@@ -201,20 +247,35 @@ def apply_action(state: dict[str, Any], command: str, target: str = "", *, now: 
     if command in {"walk", "sit", "sleep"}:
         destination = resolve_target(target, "bed" if command == "sleep" else "sofa")
     if command == "mood" and target not in EXPRESSIONS:
-        raise ValueError("房间表情可用：开心 / 困 / 恢复")
+        raise ValueError("房间表情可用：开心 / 困 / 生气 / 低落 / 放松 / 惊讶 / 眨眼 / 惊喜 / 委屈 / 恢复")
     if command == "lamp" and target and target not in {"on", "off", "开", "关", "true", "false"}:
         raise ValueError("灯目标可用 on/off 或留空切换")
     processed = {k: v for k, v in state["processed"].items() if now - v < 86400}
     if request_id and request_id in processed:
         return False, "请求已处理"
     char = state["character"]
+    if command in GESTURES and command != "wake":
+        if (char.get("gesture") or {}).get("expiresAt", 0) > now * 1000:
+            raise ValueError("麦麦正在互动，请等这个动作结束后再试")
+        if char["walking"]:
+            raise ValueError("麦麦还在走路，请等她到达后再互动")
+        if char["pose"] in {"lie", "sleep"} or char["action"] == "sleep":
+            raise ValueError("麦麦正在睡觉，先叫醒她再互动")
+        if char.get("source") == "garden" and (char.get("gardenWork") or {}).get("phase") in {"queued", "walking", "working"}:
+            raise ValueError("麦麦正在照料菜园，等这项工作完成再互动")
     if command in {"stand", "wake"}:
+        before = [char["position"]["x"], char["position"]["z"]]
+        after = before
         if char["pose"] in {"lie", "sit"} and char["target"]:
             # Step off furniture to the associated access point before standing.
             node = char["target"]["access"]
-            char["position"] = dict(zip(("x", "z"), NODES[node]))
-        char.update(action="stand", pose="stand", walking=False, path=[], target=None, elevation=0, source=source)
+            after = list(NODES[node])
+        motion = record_motion(state, [before, after], now)
+        char.update(action="stand", pose="stand", walking=False, path=[], target=None, motion=motion, gesture=None, gardenWork=None, elevation=0,
+                    position=dict(zip(("x", "z"), after)), source=source)
     elif destination:
+        char["gesture"] = None
+        char["gardenWork"] = None
         arrival = "sleep" if command == "sleep" else "sit" if command == "sit" else "stand"
         travel(state, destination, arrival, source, now)
     elif command == "auto":
@@ -293,6 +354,12 @@ def advance_auto(state: dict[str, Any], life: dict[str, Any], now: float) -> boo
 
 def snapshot(state: dict[str, Any], life: dict[str, Any], name: str, now: float) -> dict[str, Any]:
     char = deepcopy(state["character"])
+    if char.get("motion"):
+        route = char["motion"]["route"]
+        total = sum(math.dist(a, b) for a, b in zip(route, route[1:]))
+        remaining = [[char["position"]["x"], char["position"]["z"]], *char["path"]]
+        rest = sum(math.dist(a, b) for a, b in zip(remaining, remaining[1:])) if char["walking"] else 0
+        char["motion"]["arc"] = max(0, total - rest)
     char["name"] = clean(name, 32)
     if char["expression"]["source"] == "default" and char["action"] == "sleep":
         char["expression"] = {"name": "sleepy", "source": "activity-inference", "expiresAt": 0}

@@ -30,10 +30,12 @@ async function start() {
   starts++;
   const active = () => !signal.aborted && pageActive && ((!document.hidden && inView) || (releaseAt > Date.now()));
   const guard = () => { if (!active()) throw cancelled(); };
-  function request(kind,name,args={}) {
+  function request(kind,name,args={},timing=null) {
     const run = async () => {
       guard();
+      if(timing)timing.startedAt=performance.now();
       const result = await window.maibot[kind](name,args);
+      if(timing)timing.finishedAt=performance.now();
       guard();
       return result;
     };

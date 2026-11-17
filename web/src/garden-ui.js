@@ -96,7 +96,7 @@ export function mountGardenUI({ onAction, onControl, onSelectPlot, onClose, onHo
     ['play', '陪她玩'], ['wake', '叫醒'],
     ['lamp', '灯']
   ]) {
-    socialGrid.append(button('garden-social-button', label, () => onHomeAction?.(action), label));
+    socialGrid.append(button('garden-social-button', label, () => invokeHome(action), label));
   }
   companionship.append(companionshipTitle, socialGrid);
   companionship.append(el('p', 'garden-grab-hint', '点选菜畦安排照料，麦麦会沿小径走到现场，完成后才会扣除物资或收获入库。'));
@@ -414,6 +414,16 @@ export function mountGardenUI({ onAction, onControl, onSelectPlot, onClose, onHo
       busy = false;
       if (!disposed) render();
     }
+  }
+  async function invokeHome(action) {
+    if(busy||disposed)return;
+    busy=true;feedbackTone='';feedbackMessage='正在告诉麦麦…';render();
+    try{
+      const result=await onHomeAction?.(action);
+      if(disposed)return;
+      feedbackMessage=result?.message||'已经记下了';feedbackTone=result?.ok===false?'warning':'success';
+    }catch(error){feedbackMessage=String(error?.message||'这次没有完成，请再试一次');feedbackTone='warning';}
+    finally{busy=false;if(!disposed)render();}
   }
   function renderVisibility() {
     panel.hidden = !open;

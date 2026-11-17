@@ -82,6 +82,8 @@ def find_route(point: list[float], target: dict[str, Any], nodes: dict[str, list
     free = str(target.get("id", "")).startswith("free:")
     if free and not ground_point_valid(finish, rooms):
         raise ValueError("这里没有可站立的地面，请选择家具之外的位置")
+    if math.dist(point, finish) <= .001:
+        return []
     if free and _segment_clear(point, finish, rooms):
         return [finish] if math.dist(point, finish) > .001 else []
     graph: dict[str, list[tuple[str, float, list[list[float]]]]] = {n: [] for n in nodes}

@@ -1,6 +1,6 @@
 # 麦麦的小屋 API
 
-适用于插件 1.3 系列、MaiBot SDK 2.20 及以上。插件 ID 为 `cateye.maimai_room`，本文所有 API 的版本均为字符串 `"1"`。
+适用于插件 1.3.7 及以上，兼容 MaiBot 1.3.7–1.4.99、MaiBot SDK 2.12.0–2.99.99。插件 ID 为 `cateye.maimai_room`，本文所有 API 的版本均为字符串 `"1"`。
 
 ## 调用与返回
 
@@ -117,7 +117,7 @@ room_control_action(token, command, target="", request_id="")
 | `sit` | 沙发、椅子等地点 |
 | `sleep` | 通常为 `bed` |
 | `auto` | 解除手动姿态覆盖 |
-| `mood` | `开心/困/恢复`，也支持已声明的英文表情名 |
+| `mood` | `开心/困/生气/低落/放松/惊讶/眨眼/惊喜/委屈/恢复`，或对应英文名 |
 | `lamp` | `on/off`，留空切换 |
 | `lamp_on/lamp_off` | 留空 |
 | `pet/poke/feed/water/play/dance/stretch/bow` | 留空 |
@@ -127,6 +127,10 @@ room_control_action(token, command, target="", request_id="")
 `command` 最长 24 字符，`target` 最长 80 字符，`request_id` 最长 128 字符。相同请求 ID 在有界去重记录内复用，动作不会重复计数。默认保留最近 256 个请求，且清除超过 24 小时的记录。
 
 返回快照加 `ok/changed/message`。`changed=false` 可以表示重复请求。手动姿态默认保持 900 秒，可通过配置调整，`auto` 可以解除。
+
+八种瞬时互动仅在站立或坐姿空闲时接受；正在行走、睡眠、园艺任务尚未结束或已有瞬时动作时，返回错误且不修改状态。提供方可读取快照后重试。显式站起、唤醒或移动会中断当前互动并清理道具；已有园艺安排也会让出控制。
+
+表情英文名依次为 `happy/sleepy/angry/sad/relaxed/surprised/wink/delighted/pout/neutral`。表情与瞬时动作独立，到期后恢复自然表情；动作期间可叠加短暂的闭眼或口型。
 
 ```python
 await call_room(
@@ -153,6 +157,7 @@ await call_room(self.ctx, "room_control", action="release", token=token)
 | `movementSpeed` | 实际配置的米/秒速度 |
 | `character.position` | `{"x": ..., "z": ...}` |
 | `character.path` | 尚未走完的路径点 |
+| `character.motion` | 可选的显示同步信息：id、完整 route、当前弧长 arc、最近两段 history；不作为动作完成回执 |
 | `character.walking` | 是否正在行走 |
 | `character.pose` | `stand/sit/lie` |
 | `character.facing` | 0 为北，90 为东 |
@@ -168,6 +173,8 @@ await call_room(self.ctx, "room_control", action="release", token=token)
 | `manualUntil` | 手动覆盖到期时间 |
 
 返回的角色位置推算到本次采样时刻，因此连续读取时，位置可以在同一提交 revision 内变化。此推算保留持久状态的事务边界。普通快照不包含接管 token、回调管理 token 或聊天内容。
+
+`motion.route` 和 `path` 均为 `[x,z]` 点列，`arc` 单位为米。`history` 中每项含前段的 `id/route/endArc`，`endArc` 是切换到下一段时实际走过的弧长。页面沿路线平滑追赶采样进度，短暂缺失历史时通过只读导航补齐；其他插件应以当前快照和园艺任务回执判断行为状态。
 
 ## 用户互动信号
 
@@ -310,6 +317,7 @@ await call_room(
 | --- | --- | --- |
 | query client_config | room_client_config | 返回 renderGraceSeconds、desktopFps |
 | query summary | room_snapshot | 当前快照 |
+| query display_route | room_display_route | x、z 为页面当前呈现坐标，返回 snapshot 和合法 displayRoute；只读补齐显示路径，不移动角色 |
 | query runtime_chunk | room_runtime_chunk | encoding 为 plain/gzip，index 0–31 |
 | query model_info | room_model_info | asset 固定 maisaka.glb，quality mobile/high，encoding plain/gzip |
 | query model_chunk | room_model_chunk | 上述参数及 index，固定每块 196608 字节 |

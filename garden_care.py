@@ -43,7 +43,7 @@ def garden_snapshot(room: dict[str, Any], now_seconds: float | None = None) -> d
         garden["care"]["task"] = dict(task, **task["action"])
     garden["care"]["queued"] = len(garden["care"]["queue"])
     char = room["character"]
-    garden["care"]["character"] = {"room": char["room"], "activity": "garden_" + task["action"]["type"] if task else char["action"],
+    garden["care"]["character"] = {"room": char["room"], "activity": "garden_" + task["action"]["type"] if task and char.get("source") == "garden" else char["action"],
                                      "walking": char["walking"]}
     garden["catalog"] = deepcopy(list(CROPS))
     garden["rules"] = dict(RULES)
@@ -88,6 +88,8 @@ def _blocker(room, now, forced=False, life=None):
     if forced:
         return ""
     char = room["character"]
+    if (char.get("gesture") or {}).get("expiresAt", 0) > now * 1000:
+        return "先和你互动一会儿，稍后再照料菜园"
     if char["action"] == "sleep" or char["pose"] == "lie":
         return "正在休息，醒来后再照料菜园"
     if now < room.get("manualUntil", 0) and char.get("source") != "garden":
@@ -162,6 +164,8 @@ def control_garden(room: dict[str, Any], action: str, plot: int = -1, crop: str 
         care["nextPlanAt"] = 0
         if not fields["enabled"] and care["task"] and care["task"]["source"] == "auto":
             _finish(garden, care["task"], False, "自主照料已暂停", at, "cancelled")
+            if care["queue"]:
+                care["nextPlanAt"] = at
             room["character"]["gardenWork"] = None
             if room["character"].get("source") == "garden":
                 room["character"]["source"] = "room-routine"
@@ -236,13 +240,23 @@ def tick_garden(room: dict[str, Any], now_seconds: float | None = None, life: An
                 garden = outcome["state"]
                 care = garden["care"]
             _finish(garden, job, outcome["ok"], "麦麦：" + outcome["message"], at)
+            # Continue executable garden work in this same tick. An artificial
+            # idle gap would let the routine send the character indoors first.
+            care["nextPlanAt"] = at
             char.update(source="room-routine", gardenWork=None)
             job = None
     if not care["task"]:
         if reason:
             care["status"] = reason
         elif at >= care["nextPlanAt"]:
-            next_job = care["queue"].pop(0) if care["queue"] else None
+            next_job = None
+            while care["queue"]:
+                candidate = care["queue"].pop(0)
+                valid = _valid(garden, candidate, at)
+                if valid["ok"]:
+                    next_job = candidate
+                    break
+                _finish(garden, candidate, False, valid["message"], at)
             if next_job is None and care["autoEnabled"]:
                 action = plan_garden_action(garden, care["rotation"], at)
                 if action:
@@ -257,7 +271,11 @@ def tick_garden(room: dict[str, Any], now_seconds: float | None = None, life: An
                     destination.update(gardenJobId=next_job["id"], gardenAction=next_job["action"]["type"])
                     travel(room, destination, "stand", "garden", now)
                     next_job.update(phase="walking", startedAt=at)
-                    care["status"] = "出发去" + LABELS[next_job["action"]["type"]]
+                    if char["walking"]:
+                        care["status"] = "出发去" + LABELS[next_job["action"]["type"]]
+                    else:
+                        next_job.update(phase="working", workUntil=at + DURATIONS[next_job["action"]["type"]])
+                        care["status"] = "麦麦正在" + LABELS[next_job["action"]["type"]]
             elif care["autoEnabled"]:
                 care.update(status="菜园照料好了，等作物慢慢长大", nextPlanAt=at + 15000)
             else:
