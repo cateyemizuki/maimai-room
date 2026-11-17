@@ -1,4 +1,5 @@
 import * as THREE from '../upstream/vendor/three.module.js';
+import {ROOF_AREAS,SITE_BOUNDS} from './room-visibility.js';
 
 const TAU = Math.PI * 2;
 const HALF = Math.PI / 2;
@@ -556,10 +557,9 @@ function addWalls(root,mat) {
         b.box(edge-mid+dir*(.024+i*.051),(lo+hi)/2,side*(.115+(i%2)*.029),.068,hi-lo+.012,.050,i%2?0xddcfac:0xede0c2);
       }
     }
-    const cutPlane=new THREE.Plane(new THREE.Vector3(0,-1,0),4),wallMaterial=mat.clone();
-    wallMaterial.clippingPlanes=[cutPlane];wallMaterial.clipShadows=true;
+    const wallMaterial=mat.clone();
     const m=b.mesh(wallMaterial,'Partition '+axis+' '+fixed+' '+from);m.position.set(axis==='x'?mid:fixed,0,axis==='x'?fixed:mid);if(axis==='z')m.rotation.y=-HALF;
-    root.add(m);walls.push({mesh:m,axis,fixed,from,to,material:wallMaterial,cutPlane});return m;
+    root.add(m);walls.push({mesh:m,axis,fixed,from,to,height:H+.022,openings:opts.open||[],material:wallMaterial});return m;
   }
   wall('x',0,0,4.2,{open:[[.40,2.26,1.08,1.54,'window']]});
   wall('x',0,4.2,8.4,{col:0xe9dcc0,art:[[7.77,1.59,.49,.68,0,1]]});
@@ -624,17 +624,11 @@ export function createWorld(renderer,{quality='balanced'}={}) {
   const scene=new THREE.Scene(),root=new THREE.Group();root.name='Clover Cottage';scene.add(root);
   const mat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.88,metalness:0});
   const pickMat=new THREE.MeshBasicMaterial({visible:false});
+  const base=new Woodshop(),site=SITE_BOUNDS;
+  base.box((site.minX+site.maxX)/2,(site.top+site.bottom)/2,(site.minZ+site.maxZ)/2,
+    site.maxX-site.minX,site.top-site.bottom,site.maxZ-site.minZ,0x97a68a);
+  const foundation=base.mesh(mat,'Continuous house and garden foundation');root.add(foundation);
   const architecture=new Woodshop();
-  const footprint=[[0,0],[13.2,0],[13.2,8.2],[10.8,8.2],[10.8,7.6],[8.2,7.6],[8.2,9],[0,9]];
-  const points=footprint.map(([x,z])=>new THREE.Vector2(x,z));
-  for(const triangle of THREE.ShapeUtils.triangulateShape(points,[])){
-    architecture.face(triangle.map(i=>[footprint[i][0],-.006,footprint[i][1]]).reverse(),0x997459);
-    architecture.face(triangle.map(i=>[footprint[i][0],-.14,footprint[i][1]]),0x80634e);
-  }
-  for(let i=0;i<footprint.length;i++){
-    const a=footprint[i],b=footprint[(i+1)%footprint.length];
-    architecture.face([[a[0],-.14,a[1]],[a[0],-.006,a[1]],[b[0],-.006,b[1]],[b[0],-.14,b[1]]],0x997459);
-  }
   floorboards(architecture,0,3.60,4.2,7.60);floorboards(architecture,4.2,0,8.4,7.60);floorboards(architecture,8.4,0,13.2,4.40);
   floorboards(architecture,8.4,4.4,13.2,5.6);tilefloor(architecture,0,0,4.2,3.6,.44,[0xe2d8bd,0xede1c8,0xe8dcc1]);
   tilefloor(architecture,8.4,5.6,10.8,7.60,.37,[0xbfc6b2,0xcfd3c0,0xd1d4c3]);tilefloor(architecture,10.8,5.6,13.2,8.2,.34,[0xc3c9b9,0xd4d6c3,0xcbd2be]);
@@ -649,9 +643,13 @@ export function createWorld(renderer,{quality='balanced'}={}) {
   }root.add(contact.mesh(mat,'Contact shade beneath furnishings'));
   const sleeping=new Woodshop();bed(sleeping);deskAndWardrobe(sleeping);drawRug(sleeping,10.17,2.33,.72,1.42,0xc9b597,0xa79475);root.add(sleeping.mesh(mat,'Sleeping room and writing desk'));
   const outer=new Woodshop();serviceRooms(outer);balconyAndEntry(outer);root.add(outer.mesh(mat,'Balcony, entry, bath and laundry'));
-  const ceiling=new THREE.Group();ceiling.name='Ceiling';const cb=new Woodshop();
-  for(const [x,z,w,d] of [[4.18,3.8,8.35,7.6],[10.78,2.8,4.75,5.6],[9.60,6.60,2.4,2.0],[12,6.90,2.4,2.6]])cb.box(x,2.842,z,w,.076,d,0xe0cfb1);
-  ceiling.add(cb.mesh(mat,'Ceiling soffit'));ceiling.visible=false;root.add(ceiling);
+  const ceiling=new THREE.Group();ceiling.name='Room roofs';root.add(ceiling);
+  const roofs=ROOF_AREAS.map(area=>{
+    const [x0,z0,x1,z1]=area.bounds,b=new Woodshop();
+    b.box((x0+x1)/2,2.842,(z0+z1)/2,x1-x0,.076,z1-z0,0xe0cfb1);
+    const mesh=b.mesh(mat.clone(),'Roof '+area.id);ceiling.add(mesh);
+    return {id:area.id,bounds:area.bounds,mesh};
+  });
   const clockHands=timepiece(root,mat);
   const screenMat=makeScreen(),tvScreen=new THREE.Mesh(new THREE.PlaneGeometry(1.772,.995),screenMat);tvScreen.position.set(6.3,1.19,.478);tvScreen.name='Television picture';root.add(tvScreen);
   const hotspots=hotspotList(root,pickMat);const release=ownedResources(root);let disposed=false;
@@ -659,9 +657,8 @@ export function createWorld(renderer,{quality='balanced'}={}) {
   sun.position.set(-2,11,-1.5);sun.target.position.set(6,0,2);scene.add(ambient,sun,sun.target);
   const fill=new THREE.DirectionalLight(0xd9e8dd,.51);fill.position.set(9,5,11);scene.add(fill);
   const state={hour:-1,lamp:null,asleep:null,kind:null};const sky=new THREE.Color();scene.background=sky.setHex(0x354b4b);
-  return {scene,root,walls,hotspots,clockHands,ceiling,tvScreen,quality,occluders:getBoxes(),
+  return {scene,root,walls,hotspots,clockHands,ceiling,roofs,foundation,siteBounds:site,tvScreen,quality,occluders:getBoxes(),
     setClock(hours,minutes){clockHands.hour.rotation.z=-TAU*((hours%12)+minutes/60)/12;clockHands.minute.rotation.z=-TAU*minutes/60;},
-    setCeilingVisible(flag){ceiling.visible=Boolean(flag);},
     updateEnvironment({hour=12,lamp=false,asleep=false,kind=''}={}) {
       const h=Math.floor(hour);if(state.hour===h&&state.lamp===lamp&&state.asleep===asleep&&state.kind===kind)return {shadowDirty:false};
       const day=Math.max(0,Math.sin(Math.PI*(h-5.5)/13)),dusk=Math.max(0,1-Math.abs(h-17.7)/2.6);

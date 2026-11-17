@@ -1,40 +1,28 @@
 import * as THREE from '../upstream/vendor/three.module.js';
 
-// Cache small furniture bounds before the static meshes are merged. Walls keep
-// their existing cutaway treatment; floors, labels and transparent glass do not
-// obstruct a portrait. No triangle raycasts or scene scans run in the frame loop.
-function furnitureBounds(world) {
-  world.root.updateMatrixWorld(true);
-  const ignored=new Set([...world.walls.map(w=>w.mesh),...world.hotspots,...world.clockHands,world.ceiling]);
-  const tv=new THREE.Box3().setFromObject(world.tvScreen).expandByScalar(.09);
-  const bounds=[];
-  world.root.traverse(mesh=>{
-    if(!mesh.isMesh||ignored.has(mesh)||!mesh.visible||Array.isArray(mesh.material)||mesh.material.transparent)return;
-    for(let p=mesh.parent;p&&p!==world.root;p=p.parent)if(!p.visible)return;
-    mesh.geometry.computeBoundingBox();
-    const box=mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrixWorld);
-    const size=box.getSize(new THREE.Vector3());
-    if(size.y<.32||Math.max(size.x,size.z)<.28||box.max.y<.55)return;
-    const name=mesh===world.tvScreen?'television-screen':box.intersectsBox(tv)&&size.y>.6?'television':mesh.name||'furniture';
-    bounds.push({name,box:box.expandByScalar(.045)});
-  });
-  return bounds;
-}
+// Reuse the scene's furniture bounds and cache room roofs once. Walls use
+// character-based transparency. No triangle raycasts run in the frame loop.
 
 export class FollowCameraGuard {
   constructor(world) {
-    this.bounds=world.occluders||furnitureBounds(world);
+    this.bounds=world.occluders||[];
+    world.root.updateMatrixWorld(true);
+    this.roofBounds=(world.roofs||[]).map(roof=>({name:'Roof '+roof.id,room:roof.id,box:new THREE.Box3().setFromObject(roof.mesh)}));
+    this.obstacles=[...this.bounds,...this.roofBounds];
+    this.openRoof='';
     this.ray=new THREE.Ray();this.direction=new THREE.Vector3();this.hit=new THREE.Vector3();
     this.basePosition=new THREE.Vector3();this.heldPosition=new THREE.Vector3();
     this.offsetAz=0;this.offsetElev=0;this.clearFor=0;
     this.last={adjusted:false,protectedTransition:false,offsetAz:0,offsetElev:0};
   }
   reset(){this.offsetAz=0;this.offsetElev=0;this.clearFor=0;}
-  obstruction(from,to) {
+  setRoom(room){this.openRoof=room;}
+  obstruction(from,to,roofsOnly=false) {
     this.direction.subVectors(to,from);const length=this.direction.length();
     if(length<.02)return null;
     this.ray.set(from,this.direction.multiplyScalar(1/length));
-    for(const item of this.bounds){
+    for(const item of roofsOnly?this.roofBounds:this.obstacles){
+      if(item.room&&item.room===this.openRoof)continue;
       if(item.box.containsPoint(from))return item.name;
       const hit=this.ray.intersectBox(item.box,this.hit);
       // Ignore a small contact region at the character itself, e.g. a cushion.
@@ -43,6 +31,15 @@ export class FollowCameraGuard {
     return null;
   }
   clear(position,targets){return !this.obstruction(position,targets.head)&&!this.obstruction(position,targets.chest);}
+  clearRoofs(position,targets){return !this.obstruction(position,targets.head,true)&&!this.obstruction(position,targets.chest,true);}
+  protectRoofView(position,targets){
+    if(this.clearRoofs(position,targets))return;
+    const y=position.y;
+    for(const lift of [.25,.5,1,2,4,8,16,32]){
+      position.y=y+lift;
+      if(this.clearRoofs(position,targets))return;
+    }
+  }
   position(focus,az,elev,radius,out=new THREE.Vector3()){
     return out.set(focus.x+Math.sin(az)*radius*Math.cos(elev),focus.y+Math.sin(elev)*radius,focus.z+Math.cos(az)*radius*Math.cos(elev));
   }
@@ -60,6 +57,11 @@ export class FollowCameraGuard {
       this.offsetAz=0;this.offsetElev=0;out.copy(base);
     }else{
       const choices=[];
+      // A neighbouring ceiling can be avoided from below while its walls fade.
+      // Prefer this to turning a close portrait into a steep overhead view.
+      if(!this.clearRoofs(base,targets))for(const drop of [.16,.3,.45]){
+        choices.push({az:0,elev:Math.max(.12,elev-drop)-elev,cost:drop*.8});
+      }
       for(const lift of [.18,.36,.58,.82])choices.push({az:0,elev:Math.min(1.35,elev+lift)-elev,cost:lift*2.8});
       for(const turn of [.44,-.44,.88,-.88,1.32,-1.32,Math.PI])choices.push({az:turn,elev:0,cost:Math.abs(turn)});
       // Combine modest side motion with an elevated view for tall joinery.
@@ -78,6 +80,9 @@ export class FollowCameraGuard {
   }
   protectTransition(position,targets,desired){
     if(this.clear(position,targets))return;
+    if(!this.clearRoofs(position,targets)&&this.clear(desired,targets)){
+      position.copy(desired);this.last.protectedTransition=true;return;
+    }
     const y=position.y;
     // A straight interpolation between two clear sectors can cut through the
     // television. Clear the current frame vertically before continuing damping.

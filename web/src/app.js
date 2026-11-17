@@ -5,6 +5,7 @@ import { mountRoomMedia } from './media.js';
 import { mountRoomChat } from './chat.js';
 import { mountGarden } from './garden-client.js';
 import { FollowCameraGuard } from './follow-camera.js';
+import { RoomVisibility,roofAt } from './room-visibility.js';
 import roomLogo from '../../room-logo.webp';
 
 function mountRoom({root,signal,request,onRelease,clientConfig={},resourceCache=new Map(),isVisible=()=>!document.hidden}){
@@ -53,7 +54,7 @@ const eyeView={yaw:0,pitch:0};
 const canvas=$('scene');
 let renderer,world,actor,camera;
 let roomMedia=null,roomChat=null,garden=null,gardenDetailsWasOpen=false;
-let followGuard=null;
+let followGuard=null,roomVisibility=null;
 const followTargets={head:new THREE.Vector3(),chest:new THREE.Vector3()};
 const handAnchor={position:new THREE.Vector3(),quaternion:new THREE.Quaternion()};
 const desiredPos=new THREE.Vector3(),desiredLook=new THREE.Vector3(),look=new THREE.Vector3(6.7,.35,4.6);
@@ -62,23 +63,6 @@ const floor=new THREE.Plane(new THREE.Vector3(0,1,0),-.02);
 const marker=new THREE.Mesh(new THREE.RingGeometry(.14,.20,32),new THREE.MeshBasicMaterial({color:0xf0ddb2,transparent:true,opacity:.8,side:THREE.DoubleSide,depthWrite:false}));
 marker.rotation.x=-Math.PI/2;marker.visible=false;
 let markerUntil=0;
-
-function updateCutaway(){
-  const enabled=cameraMode!=='eyes';
-  for(const wall of world.walls){
-    let blocked=false;
-    if(enabled){
-      const a=wall.axis==='x'?camera.position.z:camera.position.x;
-      const b=wall.axis==='x'?desiredLook.z:desiredLook.x;
-      const t=(wall.fixed-a)/(b-a);
-      const intersection=wall.axis==='x'?camera.position.x+(desiredLook.x-camera.position.x)*t:camera.position.z+(desiredLook.z-camera.position.z)*t;
-      blocked=t>-.01&&t<1&&intersection>=wall.from-.12&&intersection<=wall.to+.12;
-    }
-    wall.mesh.visible=true;
-    if(wall.cutPlane)wall.cutPlane.constant=blocked?(cameraMode==='follow'?.45:.70):4;
-    wall.mesh.castShadow=!blocked;
-  }
-}
 
 function reportError(message=''){text($('interactionError'),message);$('interactionError').hidden=!message;}
 function connection(mode,label){$('connection').className='status '+mode;text($('connection').querySelector('span'),label);$('connection').title=label;}
@@ -236,7 +220,6 @@ function setCamera(mode,room){
     eyeView.yaw=0;eyeView.pitch=0;
   }else if(mode==='follow'){const char=predictedCharacter();view.az=char.pose==='lie'?-.75:Math.PI-char.facing*Math.PI/180+.42;view.elev=.56;view.radius=4.6;view.full=false;followPose=char.pose;followGuard?.reset();}
   if(camera){camera.near=mode==='eyes'?.04:.08;camera.fov=mode==='eyes'?60:40;camera.updateProjectionMatrix();}
-  world?.setCeilingVisible(mode==='eyes');
   document.querySelectorAll('[data-camera]').forEach(b=>b.classList.toggle('active',b.dataset.camera===mode));
   $('objectCard').hidden=true;
 }
@@ -256,6 +239,7 @@ function characterSightTargets(char){
   return followTargets;
 }
 function updateCamera(dt,char){
+  followGuard.setRoom(roofAt(char.position,roomVisibility.room));
   const aspect=canvas.clientWidth/Math.max(1,canvas.clientHeight);
   if(cameraMode==='eyes'){
     const targets=characterSightTargets(char);
@@ -274,10 +258,12 @@ function updateCamera(dt,char){
     if(cameraMode==='follow')followGuard?.resolve({focus:view.target,az:view.az,elev:view.elev,radius,targets:characterSightTargets(char),dt,manual:!!drag},desiredPos);
     desiredLook.copy(view.target);
   }
+  if(cameraMode==='overview')followGuard.protectRoofView(desiredPos,characterSightTargets(char));
   camera.position.lerp(desiredPos,1-Math.exp(-dt*5.5));look.lerp(desiredLook,1-Math.exp(-dt*6));camera.lookAt(look);
   if(cameraMode==='follow'){followGuard?.protectTransition(camera.position,followTargets,desiredPos);camera.lookAt(look);}
+  if(cameraMode==='overview'){followGuard.protectRoofView(camera.position,followTargets);camera.lookAt(look);}
   if(world.scene.fog){world.scene.fog.near=Math.max(38,camera.position.distanceTo(desiredLook)+12);world.scene.fog.far=world.scene.fog.near+80;}
-  updateCutaway();
+  if(roomVisibility.update(camera.position,characterSightTargets(char),char,{dt,firstPerson:cameraMode==='eyes'}))renderer.shadowMap.needsUpdate=true;
 }
 
 function inspectObject(data){
@@ -335,9 +321,13 @@ function selectObjectAt(event){
   cast(event);
   let wallDistance=Infinity;
   for(const wall of world.walls){
+    if(wall.opacity<.55)continue;
     for(const crossing of raycaster.intersectObject(wall.mesh,false)){
-      if(!wall.cutPlane||crossing.point.y<=wall.cutPlane.constant+.005)wallDistance=Math.min(wallDistance,crossing.distance);
+      wallDistance=Math.min(wallDistance,crossing.distance);
     }
+  }
+  for(const roof of world.roofs)if(roof.mesh.visible&&roof.opacity>=.55){
+    for(const crossing of raycaster.intersectObject(roof.mesh,false))wallDistance=Math.min(wallDistance,crossing.distance);
   }
   const hit=raycaster.intersectObjects(world.hotspots,false).find(row=>row.distance<=wallDistance+.04);
   if(hit){inspectObject(hit.object.userData.hotspot);emitInteraction('object.select',{room:hit.object.userData.hotspot.room,spot:hit.object.userData.hotspot.spot});}
@@ -462,9 +452,9 @@ async function boot(){
   try{
     progress(5,'正在摆好房间里的家具');
     renderer=new THREE.WebGLRenderer({canvas,antialias:quality!=='low',alpha:false,powerPreference:quality==='low'?'low-power':'default'});
-    renderer.localClippingEnabled=true;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.04;
+    renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.04;
     renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.shadowMap.autoUpdate=false;
-    world=createWorld(renderer,{quality});followGuard=new FollowCameraGuard(world);world.scene.add(marker);actor=new RoomActor(world.scene);
+    world=createWorld(renderer,{quality});followGuard=new FollowCameraGuard(world);roomVisibility=new RoomVisibility(world.walls,world.roofs);world.scene.add(marker);actor=new RoomActor(world.scene);
     camera=new THREE.PerspectiveCamera(40,innerWidth/innerHeight,.08,160);camera.position.set(-3,15,18);
     setCamera(cameraMode);applyQuality();bindUI();bindCanvas();
     roomMedia=mountRoomMedia({world,reportError,request,signal,delay,setTimeout,$,getSnapshot:()=>state,onOpen:()=>{garden?.setOpen(false);setCamera('overview','living');view.target.set(6.3,1.1,.55);view.az=0;view.elev=.17;view.radius=4.7;},capture:()=>{renderer.render(world.scene,camera);return canvas.toDataURL('image/png');}});
@@ -481,7 +471,7 @@ async function boot(){
 }
 
 // Read-only diagnostics for local and host acceptance. No action bypass exists.
-window.__maisakaRoom={inspect:()=>({connected:online,modelLoading,modelQuality,requestedModelQuality,characterMode:actor?.mode,model:actor?.info||null,modelReady:!!actor?.ready,clip:actor?.active,camera:cameraMode,room:selectedRoom,quality,state,frame:frameCount,drawCalls:renderer?.info.render.calls,savedDrawCalls:world?.batchedDraws??0,triangles:renderer?.info.render.triangles,cameraSettled:camera?.position.distanceTo(desiredPos),cameraRequested:{az:view.az,elev:view.elev,radius:view.radius,target:view.target.toArray()},followSightlines:followGuard&&camera?followGuard.inspect(camera.position,characterSightTargets(predictedCharacter())):null,media:roomMedia?.inspect(),chat:roomChat?.inspect(),garden:garden?.inspect(),cameraPosition:camera?.position.toArray(),canvas:{width:canvas.clientWidth,height:canvas.clientHeight},scene:{cutWalls:world?.walls.filter(w=>w.cutPlane&&w.cutPlane.constant<3).length,ceiling:!!world?.ceiling.visible},actor:actor?{rightUpperArm:actor.bones.rightUpperArm?.quaternion.toArray(),rightHand:actor.bones.rightHand?.quaternion.toArray(),rightHandPosition:actor.bones.rightHand?.getWorldPosition(new THREE.Vector3()).toArray(),rightHandWorld:actor.bones.rightHand?.getWorldQuaternion(new THREE.Quaternion()).toArray(),position:actor.group.position.toArray(),rotation:actor.group.rotation.toArray(),pose:actor.pose,expression:actor.expression,hips:actor.hips?.quaternion.toArray(),hipsPosition:actor.hips?.getWorldPosition(new THREE.Vector3()).toArray(),footPosition:actor.model?.getObjectByName('leftFoot')?.getWorldPosition(new THREE.Vector3()).toArray(),head:actor.model?.getObjectByName('head')?.quaternion.toArray(),headPosition:actor.model?.getObjectByName('head')?.getWorldPosition(new THREE.Vector3()).toArray(),chestPosition:actor.model?.getObjectByName('chest')?.getWorldPosition(new THREE.Vector3()).toArray(),leg:actor.model?.getObjectByName('leftUpperLeg')?.quaternion.toArray(),morphs:actor.morphs.map(m=>({names:m.morphTargetDictionary,weights:[...m.morphTargetInfluences]}))}:null}),projectActor:()=>{if(!actor)return null;const p=actor.group.position.clone().add(new THREE.Vector3(0,1.05,0)).project(camera);return{x:(p.x*.5+.5)*canvas.clientWidth,y:(-p.y*.5+.5)*canvas.clientHeight};},projectPoint:point=>{const p=new THREE.Vector3(point[0],.02,point[1]).project(camera);return{x:(p.x*.5+.5)*canvas.clientWidth,y:(-p.y*.5+.5)*canvas.clientHeight};},projectHotspot:title=>{const h=world?.hotspots.find(o=>o.userData.hotspot?.title===title);if(!h)return null;const p=h.position.clone().project(camera);return{x:(p.x*.5+.5)*canvas.clientWidth,y:(-p.y*.5+.5)*canvas.clientHeight};}};
+window.__maisakaRoom={inspect:()=>({connected:online,modelLoading,modelQuality,requestedModelQuality,characterMode:actor?.mode,model:actor?.info||null,modelReady:!!actor?.ready,clip:actor?.active,camera:cameraMode,room:selectedRoom,quality,state,frame:frameCount,drawCalls:renderer?.info.render.calls,savedDrawCalls:world?.batchedDraws??0,triangles:renderer?.info.render.triangles,cameraSettled:camera?.position.distanceTo(desiredPos),cameraRequested:{az:view.az,elev:view.elev,radius:view.radius,target:view.target.toArray()},followSightlines:followGuard&&camera?followGuard.inspect(camera.position,characterSightTargets(predictedCharacter())):null,media:roomMedia?.inspect(),chat:roomChat?.inspect(),garden:garden?.inspect(),cameraPosition:camera?.position.toArray(),canvas:{width:canvas.clientWidth,height:canvas.clientHeight},scene:{visibility:roomVisibility?.inspect(),foundation:world?.siteBounds,ceiling:!!world?.ceiling.visible},actor:actor?{rightUpperArm:actor.bones.rightUpperArm?.quaternion.toArray(),rightHand:actor.bones.rightHand?.quaternion.toArray(),rightHandPosition:actor.bones.rightHand?.getWorldPosition(new THREE.Vector3()).toArray(),rightHandWorld:actor.bones.rightHand?.getWorldQuaternion(new THREE.Quaternion()).toArray(),position:actor.group.position.toArray(),rotation:actor.group.rotation.toArray(),pose:actor.pose,expression:actor.expression,hips:actor.hips?.quaternion.toArray(),hipsPosition:actor.hips?.getWorldPosition(new THREE.Vector3()).toArray(),footPosition:actor.model?.getObjectByName('leftFoot')?.getWorldPosition(new THREE.Vector3()).toArray(),head:actor.model?.getObjectByName('head')?.quaternion.toArray(),headPosition:actor.model?.getObjectByName('head')?.getWorldPosition(new THREE.Vector3()).toArray(),chestPosition:actor.model?.getObjectByName('chest')?.getWorldPosition(new THREE.Vector3()).toArray(),leg:actor.model?.getObjectByName('leftUpperLeg')?.quaternion.toArray(),morphs:actor.morphs.map(m=>({names:m.morphTargetDictionary,weights:[...m.morphTargetInfluences]}))}:null}),projectActor:()=>{if(!actor)return null;const p=actor.group.position.clone().add(new THREE.Vector3(0,1.05,0)).project(camera);return{x:(p.x*.5+.5)*canvas.clientWidth,y:(-p.y*.5+.5)*canvas.clientHeight};},projectPoint:point=>{const p=new THREE.Vector3(point[0],.02,point[1]).project(camera);return{x:(p.x*.5+.5)*canvas.clientWidth,y:(-p.y*.5+.5)*canvas.clientHeight};},projectHotspot:title=>{const h=world?.hotspots.find(o=>o.userData.hotspot?.title===title);if(!h)return null;const p=h.position.clone().project(camera);return{x:(p.x*.5+.5)*canvas.clientWidth,y:(-p.y*.5+.5)*canvas.clientHeight};}};
 signal.addEventListener('abort',()=>{
   paused=true;modelGeneration++;cancelAnimationFrame(frameId);
   for(const id of timers)window.clearTimeout(id);

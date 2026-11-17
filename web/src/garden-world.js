@@ -6,8 +6,6 @@ const OAK=0xb1845e, RIM=0xc6a17a, DARK=0x786345, SAGE=0x788d75, CREAM=0xeaddbb;
 export const GARDEN_PLOTS=Array.from({length:8},(_,id)=>({id,x:2+(id%4)*2.7,z:id<4?-2.2:-5,width:2.05,depth:1.65}));
 
 function turf(b) {
-  b.pad(6.05,-.110,-3.94,14.2,.206,7.29,0x97a68a,.23,.027,3);
-  b.pad(-.63,-.084,3.28,.92,.15,7.04,0xa2aa88,.09,.012,2);
   function lane(x,z,w,d,alongX) {
     b.pad(x,.002,z,w,.024,d,0xb6b393,.046,.004,1);
     const length=alongX?w:d,width=alongX?d:w;
@@ -19,6 +17,7 @@ function turf(b) {
     }
   }
   lane(-.64,1.42,.69,10.46,false);lane(.72,-3.76,.60,6.59,false);
+  lane(6.05,-.14,14.2,.28,true);
   lane(6.28,-.88,10.50,.61,true);lane(5.52,-3.61,12.02,.66,true);lane(6.34,-6.36,10.68,.60,true);
   for(const x of [3.36,6.05,8.76,11.48])for(const z of [-2.22,-4.96])lane(x,z,.41,1.98,false);
   // Small low grass groups live at the margins of the paths.
