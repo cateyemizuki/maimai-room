@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "id": "cateye.maimai_room",
-  "version": "1.3.8",
+  "version": "1.3.9",
   "name": "麦麦的小屋",
   "description": "MaiBot SDK 自定义 3D 房间。QQ 与受限 bot 状态工具、第三方行为与日程接管、固定作息、菜园和插件视频接口。",
   "author": {

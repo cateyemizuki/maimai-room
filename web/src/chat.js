@@ -1,5 +1,5 @@
 export function mountRoomChat({request,signal,delay,$,isModelLoading,getName,isVisible=()=>!document.hidden}){
-  let sending=false,watching=false,lastStatus='idle',afterSeq=0;
+  let enabled=false,sending=false,watching=false,lastStatus='idle',afterSeq=0;
   const seen=new Set();
   function line(role,message,id=''){
     if(id&&seen.has(id))return;
@@ -7,7 +7,10 @@ export function mountRoomChat({request,signal,delay,$,isModelLoading,getName,isV
     const row=document.createElement('div');row.className='chat-message '+role;
     if(role!=='notice'){const label=document.createElement('span');label.className='sender';label.textContent=role==='user'?'你':getName();row.append(label);}
     const content=document.createElement('span');content.textContent=message;row.append(content);$('chatMessages').append(row);
-    while($('chatMessages').children.length>100)$('chatMessages').firstElementChild.remove();
+    row.dataset.messageId=id;
+    while($('chatMessages').children.length>100){
+      const old=$('chatMessages').firstElementChild;seen.delete(old.dataset.messageId);old.remove();
+    }
     $('chatMessages').scrollTop=$('chatMessages').scrollHeight;return content;
   }
   async function refresh(){
@@ -21,9 +24,9 @@ export function mountRoomChat({request,signal,delay,$,isModelLoading,getName,isV
   async function watch(){
     if(watching)return;watching=true;
     try{
-      while(!signal.aborted&&!$('chatPanel').hidden){
+      while(enabled&&!signal.aborted&&!$('chatPanel').hidden){
         if(!isModelLoading()&&isVisible()){
-          try{await refresh();}catch(error){$('chatSource').textContent='专属聊天暂不可用：'+(error.message||error);}
+          try{await refresh();if(enabled)$('chatSource').textContent='麦麦的小屋专属聊天流，聊天记录保存在宿主。';}catch(error){if(enabled&&!signal.aborted)$('chatSource').textContent='专属聊天暂不可用：'+(error.message||error);}
         }
         await delay(1500);
       }
@@ -39,7 +42,7 @@ export function mountRoomChat({request,signal,delay,$,isModelLoading,getName,isV
     }
   }
   async function send(){
-    const text=$('chatInput').value.trim();if(!text||sending)return;
+    const text=$('chatInput').value.trim();if(!text||sending||!enabled)return;
     const id=globalThis.crypto?.randomUUID?.()||'room-chat-'+Date.now()+'-'+Math.random().toString(36).slice(2);
     sending=true;$('chatSend').disabled=true;$('chatInput').value='';
     line('user',text,'room-'+id);
@@ -51,7 +54,7 @@ export function mountRoomChat({request,signal,delay,$,isModelLoading,getName,isV
       void receipt(id,notice).catch(error=>{notice.textContent='投递状态待确认：'+error.message;});
       void watch();
     }catch(error){lastStatus='error';notice.textContent='消息未能提交：'+error.message;}
-    finally{sending=false;if(!signal.aborted){$('chatSend').disabled=false;$('chatInput').focus();}}
+    finally{sending=false;if(!signal.aborted){$('chatSend').disabled=!enabled;if(enabled&&!$('chatPanel').hidden)$('chatInput').focus();}}
   }
   $('chatToggle').addEventListener('click',()=>{
     $('chatPanel').hidden=false;
@@ -62,5 +65,12 @@ export function mountRoomChat({request,signal,delay,$,isModelLoading,getName,isV
   $('closeChat').addEventListener('click',()=>{$('chatPanel').hidden=true;});
   $('chatSend').addEventListener('click',send);
   $('chatInput').addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.isComposing){event.preventDefault();void send();}});
-  return {inspect:()=>({sending,lastStatus,pending:watching,messages:$('chatMessages').children.length})};
+  function setEnabled(value){
+    const changed=enabled!==value;enabled=value;
+    $('chatToggle').disabled=!enabled;$('chatInput').disabled=!enabled;$('chatSend').disabled=!enabled||sending;
+    if(!enabled)$('chatSource').textContent='房间聊天操作已关闭';
+    else if(changed&&!$('chatPanel').hidden)void watch();
+  }
+  setEnabled(false);
+  return {setEnabled,inspect:()=>({sending,lastStatus,pending:watching,messages:$('chatMessages').children.length})};
 }

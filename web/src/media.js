@@ -2,7 +2,7 @@ import * as THREE from '../upstream/vendor/three.module.js';
 
 export function mountRoomMedia({world,reportError,capture,getSnapshot,onOpen,request,signal,delay,setTimeout,$}){
   const screen=world.tvScreen;
-  const original={map:screen.material.map,emissiveMap:screen.material.emissiveMap};
+  const original={map:screen.material.map,emissiveMap:screen.material.emissiveMap,emissiveIntensity:screen.material.emissiveIntensity};
   let canvas,ctx,texture;
   function prepareTexture(){
     if(texture)return;
@@ -12,7 +12,7 @@ export function mountRoomMedia({world,reportError,capture,getSnapshot,onOpen,req
   let active=false,kind='',url='',stream=null,lastDraw=0,canShare=false;
   let capturedFrame=null,saveEnabled=false,reviewEnabled=false,frameBusy=false,frameStatus='idle',reviewUntil=0;
   let remoteState=null,remoteId='',remoteRevision=-1,loadGeneration=0,seekRevision=-1;
-  let cancelRemoteLoad=null;
+  let cancelDecode=null,shareAttempt=0;
   const video=$('mediaVideo'),image=$('mediaImage');
   function status(value){$('mediaStatus').textContent=value;}
   function detectSharing(){
@@ -40,33 +40,53 @@ export function mountRoomMedia({world,reportError,capture,getSnapshot,onOpen,req
   function stop(showStatus=true){
     loadGeneration++;
     remoteId='';
-    cancelRemoteLoad?.();cancelRemoteLoad=null;
+    cancelDecode?.();
     active=false;kind='';video.pause();video.removeAttribute('src');video.srcObject=null;video.load();image.removeAttribute('src');video.hidden=true;image.hidden=true;
     stream?.getTracks().forEach(track=>track.stop());stream=null;if(url){URL.revokeObjectURL(url);url='';}
-    screen.material.map=original.map;screen.material.emissiveMap=original.emissiveMap;screen.material.needsUpdate=true;
-    $('mediaStop').hidden=true;$('mediaPause').hidden=true;if(showStatus)status('已恢复房间原来的电视画面');
+    Object.assign(screen.material,original);screen.material.needsUpdate=true;
+    $('mediaStop').hidden=true;$('mediaPause').hidden=true;$('mediaRetry').hidden=true;if(showStatus)status('已恢复房间原来的电视画面');
     updateFrameControls();
+  }
+  function decode(element,source){
+    return new Promise((resolve,reject)=>{
+      const event=element===image?'load':'loadeddata';
+      const finish=error=>{
+        element.removeEventListener(event,ready);element.removeEventListener('error',failed);
+        cancelDecode=null;if(error)reject(error);else resolve();
+      };
+      const ready=()=>finish(),failed=()=>finish(Error(element===image?'照片无法读取':'浏览器无法解码这个视频'));
+      cancelDecode=()=>finish(new DOMException('媒体已取消','AbortError'));
+      element.addEventListener(event,ready);element.addEventListener('error',failed);element.src=source;
+      if(element===video)video.load();
+    });
   }
   async function choose(file){
     if(!file)return;
     if(!/^(image\/(png|jpeg|webp)|video\/(mp4|webm|ogg))$/i.test(file.type)){status('目前支持 PNG / JPEG / WebP 照片，以及 MP4 / WebM / Ogg 视频');return;}
-    stop(false);url=URL.createObjectURL(file);
+    stop(false);const generation=loadGeneration;
+    const current=()=>generation===loadGeneration&&!signal.aborted;
+    url=URL.createObjectURL(file);
     try{
       if(file.type.startsWith('image/')){
-        await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=()=>reject(new Error('照片无法读取'));image.src=url;});image.hidden=false;activate('image');status('正在电视里展示：'+file.name);
+        await decode(image,url);if(!current())return;
+        image.hidden=false;activate('image');status('正在电视里展示：'+file.name);
       }else{
-        await new Promise((resolve,reject)=>{video.onloadeddata=resolve;video.onerror=()=>reject(new Error('浏览器无法解码这个视频'));video.src=url;video.loop=true;video.muted=true;video.load();});
-        video.hidden=false;activate('video');await video.play();status('正在电视里播放：'+file.name);
+        video.loop=true;video.muted=true;await decode(video,url);if(!current())return;
+        video.hidden=false;activate('video');await video.play();if(current())status('正在电视里播放：'+file.name);
       }
-    }catch(error){stop(false);status(error.message||'本地媒体没有打开');}
+    }catch(error){if(current()){stop(false);status(error.message||'本地媒体没有打开');}}
   }
   async function share(){
     if(!canShare){status('宿主没有开放屏幕共享，请选择本地照片或视频');return;}
+    const attempt=++shareAttempt;let generation=loadGeneration,acquired=null;
+    const current=()=>attempt===shareAttempt&&generation===loadGeneration&&!signal.aborted;
     try{
-      const granted=await navigator.mediaDevices.getDisplayMedia({video:true,audio:false});
-      if(signal.aborted){granted.getTracks().forEach(track=>track.stop());return;}
-      stop(false);stream=granted;video.srcObject=stream;video.muted=true;video.hidden=false;await video.play();activate('screen');status('正在电视里展示授权共享的屏幕');stream?.getVideoTracks()[0]?.addEventListener('ended',()=>stop(),{signal});
-    }catch(error){status(error.name==='NotAllowedError'?'屏幕共享未获授权。可以选择本地照片或视频。':'当前环境无法共享屏幕：'+(error.message||error.name));}
+      const granted=await navigator.mediaDevices.getDisplayMedia({video:true,audio:false});acquired=granted;
+      if(!current()){granted.getTracks().forEach(track=>track.stop());return;}
+      stop(false);generation=loadGeneration;stream=granted;video.srcObject=stream;video.muted=true;video.hidden=false;
+      granted.getVideoTracks()[0]?.addEventListener('ended',()=>{if(stream===granted)stop();},{once:true,signal});
+      await video.play();if(current()){activate('screen');status('正在电视里展示授权共享的屏幕');}
+    }catch(error){if(current()){if(acquired&&stream===acquired)stop(false);status(error.name==='NotAllowedError'?'屏幕共享未获授权。可以选择本地照片或视频。':'当前环境无法共享屏幕：'+(error.message||error.name));}}
   }
   function closeSmallDetails(){if(innerWidth<=1100){document.body.classList.remove('details-open');$('detailsToggle').setAttribute('aria-expanded','false');}}
   function showTv(){detectSharing();$('objectCard').hidden=true;closeSmallDetails();onOpen?.();$('tvPanel').hidden=false;}
@@ -92,7 +112,7 @@ export function mountRoomMedia({world,reportError,capture,getSnapshot,onOpen,req
     video.loop=!!desired.loop;video.muted=desired.muted!==false;video.volume=Math.max(0,Math.min(1,Number(desired.volume)||0));
     if(seekRevision!==desired.seekRevision){seekRevision=desired.seekRevision;if(Number.isFinite(desired.position))video.currentTime=desired.position;}
     if(desired.paused){video.pause();$('mediaPause').textContent='继续播放';}
-    else video.play().then(()=>{$('mediaPause').textContent='暂停';}).catch(()=>{status('浏览器需要一次点击才能播放，请点“继续播放”');$('mediaPause').textContent='继续播放';});
+    else video.play().catch(()=>{if(remoteState===desired&&remoteId===desired.id){status('浏览器需要一次点击才能播放，请点“继续播放”');$('mediaPause').textContent='继续播放';}});
   }
   async function receiveRemote(desired){
     stop(false);const generation=loadGeneration;remoteId=desired.id;seekRevision=-1;
@@ -115,17 +135,14 @@ export function mountRoomMedia({world,reportError,capture,getSnapshot,onOpen,req
       }
       if(!current())return;
       url=URL.createObjectURL(new Blob([bytes],{type:desired.mime}));
-      await new Promise((resolve,reject)=>{
-        const finish=error=>{video.onloadeddata=null;video.onerror=null;cancelRemoteLoad=null;error?reject(error):resolve();};
-        cancelRemoteLoad=()=>finish(new DOMException('媒体已取消','AbortError'));
-        video.onloadeddata=()=>finish();video.onerror=()=>finish(Error('浏览器无法解码该媒体'));video.src=url;video.load();
-      });
+      await decode(video,url);
       if(!current())return;
       video.hidden=false;activate('video');applyRemoteControls();status('正在播放：'+desired.title);
-    }catch(error){if(current()){stop(false);status('插件指定的视频暂不可用：'+error.message);}}
+    }catch(error){if(current()){stop(false);$('mediaRetry').hidden=false;status('插件指定的视频暂不可用：'+error.message);}}
   }
   function syncPlayback(desired){
     if(!desired||desired.revision===remoteRevision)return;
+    $('mediaRetry').hidden=true;
     remoteRevision=desired.revision;remoteState=desired;
     if(desired.status==='stopped'){if(remoteId){stop(false);remoteId='';}return;}
     if(desired.status==='error'){if(remoteId){stop(false);remoteId='';}status(desired.error||'插件指定的视频准备失败');return;}
@@ -135,6 +152,10 @@ export function mountRoomMedia({world,reportError,capture,getSnapshot,onOpen,req
       else applyRemoteControls();
     }
   }
+  $('mediaRetry').addEventListener('click',()=>{if(remoteState?.status==='ready')void receiveRemote(remoteState);});
+  video.addEventListener('play',()=>{$('mediaPause').textContent='暂停';});
+  video.addEventListener('pause',()=>{$('mediaPause').textContent='继续播放';});
+  video.addEventListener('seeked',()=>{if(active&&kind==='video'&&video.readyState>=2)draw();});
   function captureFrame(){
     if(!active)return;draw();
     let data='',width=512,height=288;

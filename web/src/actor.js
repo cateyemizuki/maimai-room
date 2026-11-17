@@ -5,6 +5,8 @@ import spriteUrl from '../assets/maisaka-sprite.webp';
 import {InteractionRig,expressionWeights} from './actor-interactions.js';
 
 const HEIGHT = 1.42;
+// Midpoint of the two painted eye regions in the shared head bind space.
+const EYE_CENTER = new THREE.Vector3(-.005,.172,.215);
 const ALIASES = {
   idle: ['idle', 'stand', 'standing', 'breathing', '待机', '站立'],
   walk: ['walk', 'walking', 'run', 'running', '走路', '行走'],
@@ -121,6 +123,14 @@ export class RoomActor {
     if(action){action.reset().setEffectiveTimeScale(1).setEffectiveWeight(1).play();if(previous&&previous!==action)action.crossFadeFrom(previous,.22,false);}
     else if(previous) previous.fadeOut(.2);
     this.active=type;this.poseChangedAt=this.t;
+  }
+
+  eyePose(position,orientation){
+    const head=this.bones.head;
+    if(this.mode!=='3d'||!this.ready||!head)return false;
+    head.localToWorld(position.copy(EYE_CENTER));
+    head.getWorldQuaternion(orientation);
+    return true;
   }
 
   update(dt,camera,state,mode) {

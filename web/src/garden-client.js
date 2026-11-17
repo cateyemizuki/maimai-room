@@ -3,7 +3,7 @@ import * as THREE from '../upstream/vendor/three.module.js';
 import { createGardenWorld, GARDEN_PLOTS } from './garden-world.js';
 import { mountGardenUI } from './garden-ui.js';
 
-export function mountGarden({world,renderer,camera,hostQuery,hostAction,onError=()=>{},onOpen=()=>{},onClose=()=>{},onSnapshot=()=>{}}) {
+export function mountGarden({world,renderer,camera,hostQuery,hostAction,onError=()=>{},onOpen=()=>{},onClose=()=>{},onLayout=()=>{},onSnapshot=()=>{}}) {
   let model=null,ui=null,shown=false,checkedAt=-Infinity,painted=null;
   const gardenBounds=new THREE.Box3(new THREE.Vector3(-1.1,-.3,-7.7),new THREE.Vector3(13.2,2.3,-.25));
   const frustum=new THREE.Frustum(),projection=new THREE.Matrix4();
@@ -48,6 +48,7 @@ export function mountGarden({world,renderer,camera,hostQuery,hostAction,onError=
   }
   async function homeAction(command){
     if(busy)return {ok:false,message:'上一项安排还在保存，请稍等'};
+    if(view?.controlsEnabled===false)return {ok:false,message:'房间操作已关闭'};
     busy=true;
     try{return accept(await hostAction('interact',{command,request_id:globalThis.crypto?.randomUUID?.()||`garden-home-${Date.now()}`}));}
     catch(error){return {ok:false,message:String(error?.message||error).slice(0,180)};}
@@ -62,7 +63,7 @@ export function mountGarden({world,renderer,camera,hostQuery,hostAction,onError=
     if(opened===!!value)return;
     opened=!!value;
     if(opened){
-      ui??=mountGardenUI({onAction:act,onControl:act,onSelectPlot:select,onClose:()=>setOpen(false),onHomeAction:homeAction});
+      ui??=mountGardenUI({onAction:act,onControl:act,onSelectPlot:select,onClose:()=>setOpen(false),onHomeAction:homeAction,onLayout});
       showModel();ui.selectPlot(selected);if(view)ui.setView(view);
     }
     ui?.setOpen(opened);model?.setSelected(opened?selected:-1);
@@ -99,7 +100,7 @@ export function mountGarden({world,renderer,camera,hostQuery,hostAction,onError=
     }
     if(model&&shown)model.animateCharacter(now);
   }
-  return {update,setOpen,toggle:()=>setOpen(!opened),get isOpen(){return opened;},handlePointer,
+  return {update,setOpen,toggle:()=>setOpen(!opened),get isOpen(){return opened;},get panel(){return ui?.element;},handlePointer,
     tick,updateCharacter,refresh,selectPlot:select,
     inspect:()=>({open:opened,selected,busy,view,plots:GARDEN_PLOTS.length,meshes:model?.group.children.length||0,grip:model?.inspectGrip()}),
     destroy(){disposed=true;ui?.destroy();model?.dispose();}};

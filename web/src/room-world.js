@@ -518,6 +518,30 @@ function makeScreen() {
     const map=new THREE.CanvasTexture(canvas);map.colorSpace=THREE.SRGBColorSpace;material.map=map;
   }return material;
 }
+// Transparent walls stamp their own stencil reference after the first fragment.
+// Draw the relief on the facing side first so its mouldings and pictures keep
+// their colours even when the plaster behind them is translucent.
+function wallFacingOrder(geometry) {
+  const index=geometry.index,positions=geometry.attributes.position;
+  const original=index.array.slice(),orders=new Map();
+  let current=0;
+  return side=>{
+    if(side===current)return;
+    let order=orders.get(side);
+    if(!order){
+      const triangles=[];
+      for(let i=0;i<original.length;i+=3){
+        const depth=positions.getZ(original[i])+positions.getZ(original[i+1])+positions.getZ(original[i+2]);
+        triangles.push({i,depth});
+      }
+      triangles.sort((a,b)=>side*(b.depth-a.depth));
+      order=new original.constructor(original.length);
+      triangles.forEach(({i},n)=>{order[n*3]=original[i];order[n*3+1]=original[i+1];order[n*3+2]=original[i+2];});
+      orders.set(side,order);
+    }
+    index.array.set(order);index.needsUpdate=true;current=side;
+  };
+}
 function addWalls(root,mat) {
   const walls=[];
   function wall(axis,fixed,from,to,opts={}) {
@@ -558,8 +582,13 @@ function addWalls(root,mat) {
       }
     }
     const wallMaterial=mat.clone();
+    wallMaterial.stencilRef=walls.length+1;
+    wallMaterial.stencilFunc=THREE.NotEqualStencilFunc;
+    wallMaterial.stencilZPass=THREE.ReplaceStencilOp;
     const m=b.mesh(wallMaterial,'Partition '+axis+' '+fixed+' '+from);m.position.set(axis==='x'?mid:fixed,0,axis==='x'?fixed:mid);if(axis==='z')m.rotation.y=-HALF;
-    root.add(m);walls.push({mesh:m,axis,fixed,from,to,height:H+.022,openings:opts.open||[],material:wallMaterial});return m;
+    const sortFaces=wallFacingOrder(m.geometry);
+    root.add(m);walls.push({mesh:m,axis,fixed,from,to,height:H+.022,openings:opts.open||[],curtains:opts.curtain,material:wallMaterial,
+      faceCamera(camera){sortFaces((axis==='x'?camera.z-fixed:fixed-camera.x)>=0?1:-1);}});return m;
   }
   wall('x',0,0,4.2,{open:[[.40,2.26,1.08,1.54,'window']]});
   wall('x',0,4.2,8.4,{col:0xe9dcc0,art:[[7.77,1.59,.49,.68,0,1]]});

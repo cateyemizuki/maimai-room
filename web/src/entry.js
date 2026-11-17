@@ -45,6 +45,12 @@ async function start() {
   }
   let timeout;
   const abort = new Promise((_,reject)=>signal.addEventListener('abort',()=>reject(cancelled()),{once:true}));
+  function fail(error){
+    if(signal.aborted)return;
+    stop();
+    status.hidden=false;
+    status.textContent=(error?.message||'打开房间失败')+'，点此重试';
+  }
   try {
     status.hidden = false; status.textContent = '正在进入麦麦的小屋';
     if (!window.maibot?.ready) throw Error('请从 MaiBot 的插件页面打开房间');
@@ -81,18 +87,15 @@ async function start() {
     let mounted=false;
     window.__attachMaisaka = mount => {
       guard();mounted=true;
-      const controls=mount({root,signal,request,clientConfig,resourceCache,isVisible:()=>!document.hidden&&inView,onRelease:value=>{lastRelease=value;}});
+      const controls=mount({root,signal,request,clientConfig,resourceCache,isVisible:()=>!document.hidden&&inView,onFailure:fail,onRelease:value=>{lastRelease=value;}});
       if(session?.controller===controller)session.resume=controls?.resume;
     };
     try { document.head.append(script); }
     finally { script.remove(); delete window.__attachMaisaka; }
     if (!mounted) throw Error('房间场景未能启动');
-    status.hidden=true;
+    if(!signal.aborted)status.hidden=true;
   } catch (error) {
-    if(signal.aborted)return;
-    stop();
-    status.hidden=false;
-    status.textContent=(error?.message||'打开房间失败')+'，点此重试';
+    fail(error);
   } finally { clearTimeout(timeout); }
 }
 

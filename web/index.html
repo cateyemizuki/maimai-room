@@ -266,7 +266,7 @@ body.garden-open .details,body.garden-open .object-card{display:none!important}
 
 body.garden-open .gesture-hint{display:none}
 @media(min-width:901px){body.garden-open .bottom{left:calc((100% - clamp(350px,24vw,440px))/2)}}
-@media(max-width:900px){body.garden-open .bottom{bottom:calc(48dvh + 20px);left:50%}}
+@media(max-width:900px){body.garden-open .bottom{bottom:calc(var(--garden-panel-height,48dvh) + 20px);left:50%}}
 .loading-mark{overflow:hidden}.loading-mark img{display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit}
 
 .expression-actions.mood-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.mood-actions button[aria-pressed=true]{background:#bfd5bf30;border-color:#bfd5bf70}
@@ -332,7 +332,7 @@ body.garden-open .gesture-hint{display:none}
     <input id="mediaFile" type="file" accept="image/png,image/jpeg,image/webp,video/mp4,video/webm,video/ogg" hidden>
     <p id="screenShareInfo" class="source-hint"></p>
     <video id="mediaVideo" controls muted playsinline hidden></video><img id="mediaImage" alt="当前投到电视的本地照片" hidden>
-    <div class="media-actions"><button id="mediaPause" hidden>暂停</button><button id="mediaStop" hidden>关掉投屏</button></div>
+    <div class="media-actions"><button id="mediaPause" hidden>暂停</button><button id="mediaStop" hidden>关掉投屏</button><button id="mediaRetry" hidden>重试指定的视频</button></div>
     <label class="size-control">观看窗口<select id="mediaSize" aria-label="电视观看窗口大小"><option value="small">小窗</option><option value="half">50%</option><option value="large">80%</option><option value="full">铺满页面</option></select></label>
     <button id="captureTvFrame" class="frame-button" disabled>截取当前电视帧</button>
     <div id="tvFrameBox" class="tv-frame-box" hidden><img id="tvFrameImage" alt="刚截取的电视单帧预览"><p id="tvFrameCaption"></p><p id="tvReviewInfo" class="source-hint">单帧点评会把上面这一帧发给宿主已配置的 vlm 视觉模型，可能产生调用费用。只在你点“发送此帧点评”后发送。</p><div class="media-actions"><button id="saveTvFrame" disabled>保存到房间</button><button id="reviewTvFrame" disabled>发送此帧点评</button></div></div>
@@ -375,7 +375,7 @@ body.garden-open .gesture-hint{display:none}
 </template>
 <noscript>这个房间需要启用 JavaScript</noscript>
 <script>// Only this small loader and the inert UI template belong to the dashboard entry.
-const assets = {"plain":{"size":915004,"sha256":"5325b6c9c5815402e44fe91226bddbbad5711f82564c41f6f6bb182deea4ca4a"},"gzip":{"size":351045,"sha256":"594f89091b50cfb32f8206f9835a973436b3c713ef69e409c1d8d3f3ce7bf09e"}};
+const assets = {"plain":{"size":918567,"sha256":"02fda6abb27ac1a3aa6825a4f64cd2a8d5ab2b46a6c308421c32129ad55cd468"},"gzip":{"size":352077,"sha256":"ac96b4db9b5160b97a88dc154c1bfc6749e9c0d172330e79cd45b6c1c99a1602"}};
 const template = document.getElementById('room-template');
 const status = document.getElementById('room-entry-status');
 let inView = false, pageActive = true, session = null, queue = Promise.resolve();
@@ -421,6 +421,12 @@ async function start() {
   }
   let timeout;
   const abort = new Promise((_,reject)=>signal.addEventListener('abort',()=>reject(cancelled()),{once:true}));
+  function fail(error){
+    if(signal.aborted)return;
+    stop();
+    status.hidden=false;
+    status.textContent=(error?.message||'打开房间失败')+'，点此重试';
+  }
   try {
     status.hidden = false; status.textContent = '正在进入麦麦的小屋';
     if (!window.maibot?.ready) throw Error('请从 MaiBot 的插件页面打开房间');
@@ -457,18 +463,15 @@ async function start() {
     let mounted=false;
     window.__attachMaisaka = mount => {
       guard();mounted=true;
-      const controls=mount({root,signal,request,clientConfig,resourceCache,isVisible:()=>!document.hidden&&inView,onRelease:value=>{lastRelease=value;}});
+      const controls=mount({root,signal,request,clientConfig,resourceCache,isVisible:()=>!document.hidden&&inView,onFailure:fail,onRelease:value=>{lastRelease=value;}});
       if(session?.controller===controller)session.resume=controls?.resume;
     };
     try { document.head.append(script); }
     finally { script.remove(); delete window.__attachMaisaka; }
     if (!mounted) throw Error('房间场景未能启动');
-    status.hidden=true;
+    if(!signal.aborted)status.hidden=true;
   } catch (error) {
-    if(signal.aborted)return;
-    stop();
-    status.hidden=false;
-    status.textContent=(error?.message||'打开房间失败')+'，点此重试';
+    fail(error);
   } finally { clearTimeout(timeout); }
 }
 

@@ -17,7 +17,7 @@ body.garden-open .details,body.garden-open .object-card{display:none!important}
 
 body.garden-open .gesture-hint{display:none}
 @media(min-width:901px){body.garden-open .bottom{left:calc((100% - clamp(350px,24vw,440px))/2)}}
-@media(max-width:900px){body.garden-open .bottom{bottom:calc(48dvh + 20px);left:50%}}
+@media(max-width:900px){body.garden-open .bottom{bottom:calc(var(--garden-panel-height,48dvh) + 20px);left:50%}}
 .loading-mark{overflow:hidden}.loading-mark img{display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit}
 
 .expression-actions.mood-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.mood-actions button[aria-pressed=true]{background:#bfd5bf30;border-color:#bfd5bf70}

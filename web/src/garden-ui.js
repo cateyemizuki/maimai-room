@@ -25,7 +25,7 @@ function button(className, text, handler, label) {
 }
 
 /** Garden presentation only. Actions and saved progression belong to the server. */
-export function mountGardenUI({ onAction, onControl, onSelectPlot, onClose, onHomeAction } = {}) {
+export function mountGardenUI({ onAction, onControl, onSelectPlot, onClose, onHomeAction, onLayout } = {}) {
   const CROPS=DEFAULT_CROPS.map(crop=>({...crop}));
   const GARDEN_RULES={...DEFAULT_RULES};
   const byId=new Map(CROPS.map(crop=>[crop.id,crop]));
@@ -51,7 +51,7 @@ export function mountGardenUI({ onAction, onControl, onSelectPlot, onClose, onHo
   const headerTools = el('div', 'garden-header-tools');
   const collapse = button('garden-icon-button', '−', () => {
     collapsed = !collapsed;
-    renderVisibility();
+    render();
   }, '收起菜园面板');
   collapse.setAttribute('aria-expanded', 'true');
   const close = button('garden-icon-button', '×', () => {
@@ -143,6 +143,8 @@ export function mountGardenUI({ onAction, onControl, onSelectPlot, onClose, onHo
   body.append(tabs, scroll, feedback);
   panel.append(header, statusStrip, stewardship, companionship, conflict, body);
   document.body.append(panel);
+  const sizeObserver=new ResizeObserver(()=>{if(open&&!disposed)onLayout?.();});
+  sizeObserver.observe(panel);
 
   // Eight persistent plot controls remain focusable while the view is refreshed.
   const grow = contents.get('grow');
@@ -433,8 +435,8 @@ export function mountGardenUI({ onAction, onControl, onSelectPlot, onClose, onHo
     statusStrip.hidden = collapsed;
     stewardship.hidden = collapsed;
     companionship.hidden = collapsed;
-    if (collapsed && conflictTimer) { clearInterval(conflictTimer); conflictTimer = 0; }
-    conflict.hidden = collapsed || !conflictData;
+    if ((!open||collapsed) && conflictTimer) { clearInterval(conflictTimer); conflictTimer = 0; }
+    conflict.hidden = !open||collapsed||!conflictData;
     collapse.textContent = collapsed ? '+' : '−';
     collapse.setAttribute('aria-label', collapsed ? '展开菜园面板' : '收起菜园面板');
     collapse.setAttribute('aria-expanded', String(!collapsed));
@@ -456,7 +458,7 @@ export function mountGardenUI({ onAction, onControl, onSelectPlot, onClose, onHo
     autoToggle.disabled = busy || !care;
     startCare.disabled = busy || !care;
     startCare.classList.toggle('is-caring', care?.task?.source === 'auto' || care?.queue > 0);
-    if (view?.care?.pendingConflict) { if(!busy)showConflict(view.care.pendingConflict); } else hideConflict();
+    if (view?.care?.pendingConflict) { if(open&&!collapsed&&!busy)showConflict(view.care.pendingConflict); } else hideConflict();
     callHer.disabled = busy || !care || care.task?.type === 'visit';
     stewardshipTitle.textContent = careEnabled ? '麦麦 · 自主照料中' : '麦麦 · 自主照料已暂停';
     const task = care?.task;
@@ -568,6 +570,8 @@ export function mountGardenUI({ onAction, onControl, onSelectPlot, onClose, onHo
       }
       if (!logs.length) logList.append(el('li', 'garden-log-empty', '第一篇菜园日记，等你来写。'));
     }
+    const locked=busy||view.controlsEnabled===false;
+    for(const node of [forceButton,deferButton,...socialGrid.querySelectorAll('button')])node.disabled=locked;
     if(view.controlsEnabled===false){
       for(const node of [...actionButtons.values(),autoToggle,startCare,callHer,forceButton,deferButton,buyCompost,
         ...[...storageRows.values()].map(row=>row.sell),...[...shopRows.values()].map(row=>row.buy),...socialGrid.querySelectorAll('button')])node.disabled=true;
@@ -591,7 +595,7 @@ export function mountGardenUI({ onAction, onControl, onSelectPlot, onClose, onHo
     if (disposed) return;
     open = !!value;
     if (open) collapsed = false;
-    renderVisibility();
+    render();
   }
   function selectPlot(id) {
     const next = Number(id);
@@ -611,11 +615,13 @@ export function mountGardenUI({ onAction, onControl, onSelectPlot, onClose, onHo
   panel.addEventListener('keydown', onKey);
   renderVisibility();
   return {
+    element:panel,
     setView,
     setOpen,
     selectPlot,
     destroy() {
       disposed = true;
+      sizeObserver.disconnect();
       hideConflict();
       panel.removeEventListener('keydown', onKey);
       panel.remove();

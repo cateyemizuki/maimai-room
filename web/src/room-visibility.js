@@ -24,6 +24,9 @@ export function wallBlocks(wall,from,to){
   for(const [start,end,low,high,type] of wall.openings||[]){
     if(along<=start+.055||along>=end-.055||height<=low+.035||height>=high-.035)continue;
     if(type==='window'&&(Math.abs(along-(start+end)/2)<.026||Math.abs(height-(low+(high-low)*.66))<.024))continue;
+    if(type==='slider'&&(Math.abs(along-start-.35)<.012||Math.abs(along-end+.35)<.012))continue;
+    if(wall.curtains?.some(([a,b,lo,hi])=>height>=lo&&height<=hi&&
+      ((along>=a-.01&&along<=a+.16)||(along>=b-.16&&along<=b+.01))))continue;
     return false;
   }
   return true;
@@ -33,6 +36,7 @@ function opacity(mesh,value){
   const material=mesh.material;
   const faded=value<.998;
   if(material.transparent!==faded){material.transparent=faded;material.needsUpdate=true;}
+  material.stencilWrite=faded;
   material.opacity=value;material.depthWrite=!faded;
   mesh.visible=value>.003;
   const shadow=!faded;
@@ -73,6 +77,7 @@ export class RoomVisibility {
       }
       wall.opacity+= (wall.targetOpacity-wall.opacity)*blend;
       if(Math.abs(wall.opacity-wall.targetOpacity)<.003)wall.opacity=wall.targetOpacity;
+      if(wall.opacity<.998)wall.faceCamera?.(camera);
       shadowDirty=opacity(wall.mesh,wall.opacity)||shadowDirty;
     }
     return shadowDirty;
