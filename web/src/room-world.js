@@ -1,5 +1,5 @@
 import * as THREE from '../upstream/vendor/three.module.js';
-import {ROOF_AREAS,SITE_BOUNDS} from './room-visibility.js';
+import {SITE_BOUNDS} from './room-visibility.js';
 
 const TAU = Math.PI * 2;
 const HALF = Math.PI / 2;
@@ -643,13 +643,9 @@ export function createWorld(renderer,{quality='balanced'}={}) {
   }root.add(contact.mesh(mat,'Contact shade beneath furnishings'));
   const sleeping=new Woodshop();bed(sleeping);deskAndWardrobe(sleeping);drawRug(sleeping,10.17,2.33,.72,1.42,0xc9b597,0xa79475);root.add(sleeping.mesh(mat,'Sleeping room and writing desk'));
   const outer=new Woodshop();serviceRooms(outer);balconyAndEntry(outer);root.add(outer.mesh(mat,'Balcony, entry, bath and laundry'));
-  const ceiling=new THREE.Group();ceiling.name='Room roofs';root.add(ceiling);
-  const roofs=ROOF_AREAS.map(area=>{
-    const [x0,z0,x1,z1]=area.bounds,b=new Woodshop();
-    b.box((x0+x1)/2,2.842,(z0+z1)/2,x1-x0,.076,z1-z0,0xe0cfb1);
-    const mesh=b.mesh(mat.clone(),'Roof '+area.id);ceiling.add(mesh);
-    return {id:area.id,bounds:area.bounds,mesh};
-  });
+  const ceiling=new THREE.Group();ceiling.name='Ceiling';const cb=new Woodshop();
+  for(const [x,z,w,d] of [[4.18,3.8,8.35,7.6],[10.78,2.8,4.75,5.6],[9.60,6.60,2.4,2.0],[12,6.90,2.4,2.6]])cb.box(x,2.842,z,w,.076,d,0xe0cfb1);
+  ceiling.add(cb.mesh(mat,'Ceiling soffit'));ceiling.visible=false;root.add(ceiling);
   const clockHands=timepiece(root,mat);
   const screenMat=makeScreen(),tvScreen=new THREE.Mesh(new THREE.PlaneGeometry(1.772,.995),screenMat);tvScreen.position.set(6.3,1.19,.478);tvScreen.name='Television picture';root.add(tvScreen);
   const hotspots=hotspotList(root,pickMat);const release=ownedResources(root);let disposed=false;
@@ -657,8 +653,9 @@ export function createWorld(renderer,{quality='balanced'}={}) {
   sun.position.set(-2,11,-1.5);sun.target.position.set(6,0,2);scene.add(ambient,sun,sun.target);
   const fill=new THREE.DirectionalLight(0xd9e8dd,.51);fill.position.set(9,5,11);scene.add(fill);
   const state={hour:-1,lamp:null,asleep:null,kind:null};const sky=new THREE.Color();scene.background=sky.setHex(0x354b4b);
-  return {scene,root,walls,hotspots,clockHands,ceiling,roofs,foundation,siteBounds:site,tvScreen,quality,occluders:getBoxes(),
+  return {scene,root,walls,hotspots,clockHands,ceiling,foundation,siteBounds:site,tvScreen,quality,occluders:getBoxes(),
     setClock(hours,minutes){clockHands.hour.rotation.z=-TAU*((hours%12)+minutes/60)/12;clockHands.minute.rotation.z=-TAU*minutes/60;},
+    setCeilingVisible(flag){ceiling.visible=Boolean(flag);},
     updateEnvironment({hour=12,lamp=false,asleep=false,kind=''}={}) {
       const h=Math.floor(hour);if(state.hour===h&&state.lamp===lamp&&state.asleep===asleep&&state.kind===kind)return {shadowDirty:false};
       const day=Math.max(0,Math.sin(Math.PI*(h-5.5)/13)),dusk=Math.max(0,1-Math.abs(h-17.7)/2.6);

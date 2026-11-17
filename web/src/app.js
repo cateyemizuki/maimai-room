@@ -5,7 +5,7 @@ import { mountRoomMedia } from './media.js';
 import { mountRoomChat } from './chat.js';
 import { mountGarden } from './garden-client.js';
 import { FollowCameraGuard } from './follow-camera.js';
-import { RoomVisibility,roofAt } from './room-visibility.js';
+import { RoomVisibility } from './room-visibility.js';
 import roomLogo from '../../room-logo.webp';
 
 function mountRoom({root,signal,request,onRelease,clientConfig={},resourceCache=new Map(),isVisible=()=>!document.hidden}){
@@ -220,6 +220,7 @@ function setCamera(mode,room){
     eyeView.yaw=0;eyeView.pitch=0;
   }else if(mode==='follow'){const char=predictedCharacter();view.az=char.pose==='lie'?-.75:Math.PI-char.facing*Math.PI/180+.42;view.elev=.56;view.radius=4.6;view.full=false;followPose=char.pose;followGuard?.reset();}
   if(camera){camera.near=mode==='eyes'?.04:.08;camera.fov=mode==='eyes'?60:40;camera.updateProjectionMatrix();}
+  world?.setCeilingVisible(mode==='eyes');
   document.querySelectorAll('[data-camera]').forEach(b=>b.classList.toggle('active',b.dataset.camera===mode));
   $('objectCard').hidden=true;
 }
@@ -239,7 +240,6 @@ function characterSightTargets(char){
   return followTargets;
 }
 function updateCamera(dt,char){
-  followGuard.setRoom(roofAt(char.position,roomVisibility.room));
   const aspect=canvas.clientWidth/Math.max(1,canvas.clientHeight);
   if(cameraMode==='eyes'){
     const targets=characterSightTargets(char);
@@ -258,10 +258,8 @@ function updateCamera(dt,char){
     if(cameraMode==='follow')followGuard?.resolve({focus:view.target,az:view.az,elev:view.elev,radius,targets:characterSightTargets(char),dt,manual:!!drag},desiredPos);
     desiredLook.copy(view.target);
   }
-  if(cameraMode==='overview')followGuard.protectRoofView(desiredPos,characterSightTargets(char));
   camera.position.lerp(desiredPos,1-Math.exp(-dt*5.5));look.lerp(desiredLook,1-Math.exp(-dt*6));camera.lookAt(look);
   if(cameraMode==='follow'){followGuard?.protectTransition(camera.position,followTargets,desiredPos);camera.lookAt(look);}
-  if(cameraMode==='overview'){followGuard.protectRoofView(camera.position,followTargets);camera.lookAt(look);}
   if(world.scene.fog){world.scene.fog.near=Math.max(38,camera.position.distanceTo(desiredLook)+12);world.scene.fog.far=world.scene.fog.near+80;}
   if(roomVisibility.update(camera.position,characterSightTargets(char),char,{dt,firstPerson:cameraMode==='eyes'}))renderer.shadowMap.needsUpdate=true;
 }
@@ -325,9 +323,6 @@ function selectObjectAt(event){
     for(const crossing of raycaster.intersectObject(wall.mesh,false)){
       wallDistance=Math.min(wallDistance,crossing.distance);
     }
-  }
-  for(const roof of world.roofs)if(roof.mesh.visible&&roof.opacity>=.55){
-    for(const crossing of raycaster.intersectObject(roof.mesh,false))wallDistance=Math.min(wallDistance,crossing.distance);
   }
   const hit=raycaster.intersectObjects(world.hotspots,false).find(row=>row.distance<=wallDistance+.04);
   if(hit){inspectObject(hit.object.userData.hotspot);emitInteraction('object.select',{room:hit.object.userData.hotspot.room,spot:hit.object.userData.hotspot.spot});}
@@ -454,7 +449,7 @@ async function boot(){
     renderer=new THREE.WebGLRenderer({canvas,antialias:quality!=='low',alpha:false,powerPreference:quality==='low'?'low-power':'default'});
     renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.04;
     renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.shadowMap.autoUpdate=false;
-    world=createWorld(renderer,{quality});followGuard=new FollowCameraGuard(world);roomVisibility=new RoomVisibility(world.walls,world.roofs);world.scene.add(marker);actor=new RoomActor(world.scene);
+    world=createWorld(renderer,{quality});followGuard=new FollowCameraGuard(world);roomVisibility=new RoomVisibility(world.walls);world.scene.add(marker);actor=new RoomActor(world.scene);
     camera=new THREE.PerspectiveCamera(40,innerWidth/innerHeight,.08,160);camera.position.set(-3,15,18);
     setCamera(cameraMode);applyQuality();bindUI();bindCanvas();
     roomMedia=mountRoomMedia({world,reportError,request,signal,delay,setTimeout,$,getSnapshot:()=>state,onOpen:()=>{garden?.setOpen(false);setCamera('overview','living');view.target.set(6.3,1.1,.55);view.az=0;view.elev=.17;view.radius=4.7;},capture:()=>{renderer.render(world.scene,camera);return canvas.toDataURL('image/png');}});
