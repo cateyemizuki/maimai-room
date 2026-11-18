@@ -305,6 +305,8 @@ await call_room(
 
 房间聊天使用独立原生流，平台为 `maimai_room`，账号为 `maimai_room_bot`，用户为 `room_owner`，scope 为 `maimai_room`。消息通过本插件的 duplex 网关进入宿主，由该网关接收对应流的出站回复。
 
+清单中的 `gateway.update_state` 和 `gateway.route_message` 分别对应专属网关的就绪上报和用户消息入站。SDK 通过宿主的专用 RPC 调用这两个方法，宿主检查网关归属、接收方向和就绪状态。
+
 专属消息仍由宿主聊天核心处理，并保存在宿主聊天记录中。页面使用有界本地镜像续看，保留最近 200 条。投递中断会标记状态，镜像保留范围内的持久请求 ID 可避免已发送消息在重载后重复投递。
 
 下述聊天接口是页面私有绑定。房间中的工具若需主动调节自身状态，可以在 `tools.private_users` 中明确加入 `maimai_room:room_owner`，默认空白名单继续生效。

@@ -18,9 +18,9 @@ export function expressionWeights(expression,blink=0,{sleeping=false,faceAge=0,g
   else if(expression==='sleepy'){w.blink=1;w.relaxed=.2;}
   else if(expression==='angry'){w.angry=.85;w.ee=.12;}
   else if(expression==='sad'){w.sad=.85;w.oh=.12;}
-  else if(expression==='relaxed'){w.relaxed=.85;w.blink=Math.max(blink,.12);}
+  else if(expression==='relaxed'){w.relaxed=.50;}
   else if(expression==='surprised'){w.surprised=.85;w.oh=.5;}
-  else if(expression==='delighted'){w.happy=.55;w.surprised=.45;w.oh=.32;}
+  else if(expression==='delighted'){w.surprised=.45;w.aa=.68;}
   else if(expression==='pout'){w.sad=.65;w.ou=.55;w.blink=Math.max(blink,.12);}
   else if(expression==='wink'){
     const phase=faceAge%3.1,pulse=phase<.65?Math.sin(phase/.65*Math.PI):0;
@@ -34,6 +34,11 @@ export function expressionWeights(expression,blink=0,{sleeping=false,faceAge=0,g
     if(gesture.name==='water'){w.ou=Math.max(w.ou,.45*e);w.oh=Math.max(w.oh,.12*e);}
     if(gesture.name==='play'||gesture.name==='dance')w.happy=Math.max(w.happy,.7*e);
     if(gesture.name==='stretch')w.relaxed=Math.max(w.relaxed,.65*e);
+  }
+  // Let a blink replace the base eye shape instead of adding another closure.
+  if(expression==='relaxed'||expression==='delighted'){
+    w.relaxed*=1-w.blink;
+    w.surprised*=1-w.blink;
   }
   for(const name of Object.keys(w))w[name]=clamp(w[name],0,1);
   return w;
